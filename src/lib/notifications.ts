@@ -1,7 +1,5 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 /* ── Types ── */
 interface MatchParty {
   email: string
@@ -115,6 +113,7 @@ export async function sendMatchEmail(
 ) {
   if (!process.env.RESEND_API_KEY) return
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY)
     await resend.emails.send({
       from: process.env.RESEND_FROM ?? 'BoleterasCO <noreply@boleteras.co>',
       to:   party.email,
