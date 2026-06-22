@@ -58,7 +58,7 @@ function RegisterContent() {
             <span className="font-display font-bold text-[22px] text-[#C8A04A]">CO</span>
           </Link>
           <div className="rounded-2xl border p-8 text-center space-y-5" style={{ background: 'var(--ink-mid)', borderColor: 'var(--ink-border)' }}>
-            <div className="w-14 h-14 mx-auto flex items-center justify-center" style={{ background: 'rgba(200,160,74,0.10)', border: '1px solid rgba(200,160,74,0.25)' }}>
+            <div className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center" style={{ background: 'rgba(200,160,74,0.10)', border: '1px solid rgba(200,160,74,0.25)' }}>
               <svg className="w-7 h-7 text-[#C8A04A]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" d="M5 13l4 4L19 7" />
               </svg>

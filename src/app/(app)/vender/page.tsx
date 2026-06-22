@@ -110,7 +110,7 @@ function VenderContent() {
           <div className="flex items-center gap-0 mb-10" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={3}>
             {([1, 2, 3] as Step[]).map((s, i) => (
               <div key={s} className="flex items-center flex-1 last:flex-none">
-                <div className={`w-7 h-7 flex items-center justify-center border transition-colors duration-150 ${step >= s ? 'bg-accent border-accent' : 'bg-transparent border-border'}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center border transition-colors duration-150 ${step >= s ? 'bg-accent border-accent' : 'bg-transparent border-border'}`}>
                   <span className={`font-display font-700 text-xs ${step >= s ? 'text-accent-fg' : 'text-fg-muted'}`}>{s}</span>
                 </div>
                 {i < 2 && <div className={`flex-1 h-px transition-colors duration-150 ${step > s ? 'bg-accent' : 'bg-border'}`} />}
@@ -199,7 +199,7 @@ function VenderContent() {
               </div>
 
               {price >= 50000 && (
-                <div className="bg-bg-surface border border-border p-4 space-y-2">
+                <div className="bg-bg-surface border border-border rounded-xl p-4 space-y-2">
                   <p className="text-label text-fg-muted mb-3">Resumen de la venta</p>
                   <div className="flex justify-between text-sm">
                     <span className="text-fg-muted">{form.quantity}x boleta a {formatCOP(price)}</span>
@@ -276,7 +276,7 @@ function VenderContent() {
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  className="mt-0.5 w-4 h-4 accent-[#FF5C1A] flex-shrink-0 cursor-pointer"
+                  className="mt-0.5 w-4 h-4 accent-[#C8A04A] flex-shrink-0 cursor-pointer"
                   checked={form.agreed}
                   onChange={e => set('agreed', e.target.checked)}
                 />
@@ -284,7 +284,7 @@ function VenderContent() {
               </label>
 
               {apiError && (
-                <div className="p-3 text-sm text-[#F87171]" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.20)' }}>
+                <div className="p-3 rounded-lg text-sm text-[#F87171]" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.20)' }}>
                   {apiError}
                 </div>
               )}
@@ -309,7 +309,7 @@ function VenderContent() {
           {/* ── STEP 3 — Success ── */}
           {step === 3 && (
             <div className="space-y-6 animate-fade-up text-center py-10">
-              <div className="w-16 h-16 mx-auto border-2 border-accent flex items-center justify-center">
+              <div className="w-16 h-16 mx-auto rounded-2xl border-2 border-accent flex items-center justify-center" style={{ background: 'rgba(200,160,74,0.08)' }}>
                 <svg aria-hidden="true" className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="square" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
