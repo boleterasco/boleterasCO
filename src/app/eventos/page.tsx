@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Reveal from '@/components/ui/Reveal'
-import { formatCOP } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 
 type DbEvent = {
   id: string
@@ -188,7 +188,7 @@ export default function EventosPage() {
                       {/* Content */}
                       <div className="flex flex-col flex-1 p-5 gap-3">
                         <p className="t-label" style={{ color: 'var(--accent)' }}>
-                          {new Date(event.date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}
+                          {formatDate(event.date).toUpperCase()}
                         </p>
                         <h2
                           className="font-poster group-hover:text-[var(--accent)] transition-colors duration-150 leading-tight"

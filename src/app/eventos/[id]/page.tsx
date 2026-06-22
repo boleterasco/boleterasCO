@@ -95,16 +95,12 @@ export default async function EventDetailPage({ params }: Props) {
                 <h1 className="font-display font-800 text-fg leading-tight" style={{ fontSize: 'clamp(28px, 5vw, 56px)', letterSpacing: '-0.03em' }}>
                   {event.name}
                 </h1>
-                <div className="flex flex-wrap items-center gap-4 mt-2">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
                   <span className="text-label text-accent">{formatDate(event.date).toUpperCase()}</span>
                   {event.venue && (
-                    <>
-                      <span className="text-label text-fg-muted">·</span>
-                      <span className="text-label text-fg-muted">{event.venue.toUpperCase()}</span>
-                    </>
+                    <span className="text-label text-fg-muted">· {event.venue.toUpperCase()}</span>
                   )}
-                  <span className="text-label text-fg-muted">·</span>
-                  <span className="text-label text-fg-muted">{event.city.toUpperCase()}</span>
+                  <span className="text-label text-fg-muted">· {event.city.toUpperCase()}</span>
                 </div>
               </div>
 

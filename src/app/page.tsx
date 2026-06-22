@@ -42,11 +42,11 @@ function mapEvent(ev: Record<string, unknown>): UiEvent {
 }
 
 const CATS = [
-  { id: 'all',       label: 'Todos' },
-  { id: 'MUNDIAL',   label: '⚽ Mundial' },
-  { id: 'CONCIERTO', label: 'Conciertos' },
-  { id: 'FESTIVAL',  label: 'Festivales' },
-  { id: 'ROCK',      label: 'Rock' },
+  { id: 'all',          label: 'Todos' },
+  { id: 'MUNDIAL_2026', label: '⚽ Mundial' },
+  { id: 'CONCIERTO',    label: 'Conciertos' },
+  { id: 'FESTIVAL',     label: 'Festivales' },
+  { id: 'DEPORTES',     label: 'Deportes' },
 ]
 
 const FAQ = [
@@ -72,11 +72,12 @@ const STEPS_SELLER = [
 /* ── Helpers ── */
 function catBadge(cat: string) {
   const map: Record<string, string> = {
-    MUNDIAL:   'bg-[rgba(74,222,128,0.12)] text-[#4ADE80]',
-    CONCIERTO: 'bg-[rgba(129,140,248,0.12)] text-[#818CF8]',
-    FESTIVAL:  'bg-[rgba(252,211,77,0.12)] text-[#FCD34D]',
-    ROCK:      'bg-[rgba(248,113,113,0.12)] text-[#F87171]',
-    URBANO:    'bg-[rgba(192,132,252,0.12)] text-[#C084FC]',
+    MUNDIAL_2026: 'bg-[rgba(74,222,128,0.12)] text-[#4ADE80]',
+    CONCIERTO:    'bg-[rgba(200,160,74,0.12)] text-[#C8A04A]',
+    FESTIVAL:     'bg-[rgba(252,211,77,0.12)] text-[#FCD34D]',
+    DEPORTES:     'bg-[rgba(248,113,113,0.12)] text-[#F87171]',
+    ROCK:         'bg-[rgba(129,140,248,0.12)] text-[#818CF8]',
+    URBANO:       'bg-[rgba(192,132,252,0.12)] text-[#C084FC]',
   }
   return map[cat] ?? 'bg-white/8 text-white/50'
 }
@@ -111,13 +112,11 @@ function PosterCard({ ev, width, animClass, style }: {
 
 /* ── Event card ── */
 function EventCard({ ev }: { ev: UiEvent }) {
-  const isHot  = ev.seeking >= 40
-  const isLow  = ev.avail > 0 && ev.avail <= 5
-  const isSold = ev.avail === 0
+  const catLabel = { MUNDIAL_2026: '⚽ Mundial', CONCIERTO: 'Concierto', FESTIVAL: 'Festival', DEPORTES: 'Deportes', ROCK: 'Rock', URBANO: 'Urbano' }[ev.cat] ?? ev.cat
 
   return (
     <Link href={`/eventos/${ev.id}`} className="card-event group flex flex-col h-full" aria-label={ev.name}>
-      {/* Gradient image */}
+      {/* Visual */}
       <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
         <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.06]" style={{ background: ev.visual }} />
         {ev.imageUrl && (
@@ -125,64 +124,27 @@ function EventCard({ ev }: { ev: UiEvent }) {
           <img src={ev.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
         )}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 55%)' }} />
-
-        {/* Top badges */}
-        <div className="absolute top-2.5 left-2.5 flex gap-1.5 z-10">
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${catBadge(ev.cat)}`}>
-            {ev.cat === 'MUNDIAL' ? '⚽' : ev.cat}
-          </span>
-          {isHot && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[rgba(200,160,74,0.18)] text-[#C8A04A]">🔥</span>
-          )}
+        <div className="absolute top-2.5 left-2.5 z-10">
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${catBadge(ev.cat)}`}>{catLabel}</span>
         </div>
-
-        {/* Urgency top-right */}
-        {isLow && (
-          <div className="absolute top-2.5 right-2.5 z-10">
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#C8A04A] text-[#09090E] uppercase tracking-wide">
-              ¡Solo {ev.avail}!
-            </span>
-          </div>
-        )}
-
-        {/* City bottom-left */}
         <div className="absolute bottom-2.5 left-3 z-10">
-          <p className="text-[9px] text-white/45 uppercase tracking-widest">{ev.city}</p>
+          <p className="text-[9px] text-white/40 uppercase tracking-widest">{ev.city}</p>
         </div>
       </div>
 
       {/* Card body */}
       <div className="p-3.5 flex flex-col flex-1">
-        {/* Name + price row */}
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-[15px] font-bold text-[#EDE9DF] leading-snug line-clamp-2 flex-1">{ev.name}</p>
-          {ev.price > 0 && (
-            <p className="text-[13px] font-bold text-[#C8A04A] nums flex-shrink-0 mt-0.5 tabular-nums">{formatCOP(ev.price)}</p>
-          )}
-        </div>
-
+        <p className="text-[15px] font-bold text-[#EDE9DF] leading-snug line-clamp-2">{ev.name}</p>
         <p className="text-[12px] text-[#EDE9DF]/35 mt-1">{ev.date}</p>
+        {ev.sub && <p className="text-[11px] text-[#EDE9DF]/22 mt-0.5 truncate">{ev.sub}</p>}
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Status badges */}
-        <div className="flex items-center gap-1.5 flex-wrap mt-3 pt-3 border-t border-white/[0.05]">
-          {!isSold
-            ? <span className="badge badge-live badge-hot-anim">{ev.avail} disponibles</span>
-            : <span className="badge badge-muted">Sin oferta</span>
-          }
-          <span className="badge badge-seek">{ev.seeking} buscando</span>
-        </div>
-
-        {/* Hover reveal CTA */}
-        <div className="mt-2.5 opacity-0 group-hover:opacity-100 -translate-y-1 group-hover:translate-y-0 transition-all duration-200 ease-out">
-          <span className="text-[13px] font-semibold text-[#C8A04A] flex items-center gap-1">
-            Ver boletas
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.05]">
+          <span className="text-[12px] font-medium text-[#C8A04A]/70">Ver boletas</span>
+          <svg className="w-3.5 h-3.5 text-[#C8A04A]/40 -translate-x-1 group-hover:translate-x-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </div>
       </div>
     </Link>
@@ -376,15 +338,19 @@ export default function Landing() {
                   </div>
                 )}
 
-                {/* Floating badges */}
-                <div className="absolute left-0 bottom-10 z-10 bg-[#1B1B26] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.50)] px-4 py-3 border border-white/8">
-                  <p className="text-[22px] font-bold text-[#EDE9DF] leading-none nums" style={{ fontFamily: 'var(--font-display)' }}>89</p>
-                  <p className="text-[11px] text-[#EDE9DF]/40 mt-0.5">buscando este partido</p>
-                </div>
-                <div className="absolute right-4 top-10 z-10 bg-[#C8A04A] rounded-xl shadow-[0_4px_20px_rgba(200,160,74,0.40)] px-3 py-2">
-                  <p className="text-[11px] text-[#09090E]/55">desde</p>
-                  <p className="text-[15px] font-bold text-[#09090E] leading-tight">{formatCOP(1200000)}</p>
-                </div>
+                {/* Floating badges — real data only */}
+                {stats.requests > 0 && (
+                  <div className="absolute left-0 bottom-10 z-10 bg-[#1B1B26] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.50)] px-4 py-3 border border-white/8">
+                    <p className="text-[22px] font-bold text-[#EDE9DF] leading-none nums" style={{ fontFamily: 'var(--font-display)' }}>{stats.requests}</p>
+                    <p className="text-[11px] text-[#EDE9DF]/40 mt-0.5">compradore{stats.requests !== 1 ? 's' : ''} buscando</p>
+                  </div>
+                )}
+                {stats.listings > 0 && (
+                  <div className="absolute right-4 top-10 z-10 bg-[#C8A04A] rounded-xl shadow-[0_4px_20px_rgba(200,160,74,0.40)] px-3 py-2">
+                    <p className="text-[11px] text-[#09090E]/60">boletas</p>
+                    <p className="text-[15px] font-bold text-[#09090E] leading-tight">{stats.listings} activa{stats.listings !== 1 ? 's' : ''}</p>
+                  </div>
+                )}
               </div>
 
             </div>

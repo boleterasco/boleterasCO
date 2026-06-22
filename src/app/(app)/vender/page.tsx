@@ -315,18 +315,23 @@ function VenderContent() {
                 </svg>
               </div>
               <div>
-                <h2 className="font-display font-800 text-2xl text-fg">¡Publicada!</h2>
-                <p className="text-sm text-fg-muted mt-2 max-w-sm mx-auto leading-relaxed">
-                  Tu boleta está activa. El sistema ya está buscando compradores. Te avisamos cuando haya un match.
+                <h2 className="font-display font-bold text-2xl text-fg tracking-tight">¡Boleta publicada!</h2>
+                {selected && (
+                  <p className="text-sm text-accent mt-1 font-medium">{selected.name}</p>
+                )}
+                <p className="text-sm text-fg-muted mt-3 max-w-sm mx-auto leading-relaxed">
+                  Tu boleta está activa y el sistema ya busca compradores. Te avisamos por WhatsApp y email cuando haya un match.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Link href="/dashboard" className="btn-primary px-8 py-3 text-sm">
-                  Ver mi dashboard
+                <Link href="/dashboard" className="btn-primary !px-8 !py-3 text-sm">
+                  Ver mis publicaciones
                 </Link>
-                <Link href="/eventos" className="btn-outline px-8 py-3 text-sm">
-                  Ver eventos
-                </Link>
+                {form.eventId && (
+                  <Link href={`/eventos/${form.eventId}`} className="btn-outline !px-8 !py-3 text-sm">
+                    Ver el evento
+                  </Link>
+                )}
               </div>
             </div>
           )}

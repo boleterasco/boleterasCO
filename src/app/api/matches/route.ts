@@ -47,3 +47,24 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ matches: matches ?? [], userId: user.id })
 }
+
+export async function PATCH(req: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  const { matchId, action } = await req.json()
+  if (!matchId || !action) return NextResponse.json({ error: 'matchId y action requeridos' }, { status: 400 })
+
+  const statusMap: Record<string, string> = { accept: 'ACCEPTED', reject: 'REJECTED' }
+  const newStatus = statusMap[action]
+  if (!newStatus) return NextResponse.json({ error: 'Acción inválida' }, { status: 400 })
+
+  const { error } = await supabase
+    .from('matches')
+    .update({ status: newStatus })
+    .eq('id', matchId)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

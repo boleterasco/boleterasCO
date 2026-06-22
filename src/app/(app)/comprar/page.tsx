@@ -18,16 +18,16 @@ function ListingCard({ listing, onSelect }: { listing: DbListing; onSelect: () =
   const eventName = listing.event?.name ?? 'Evento'
   const city      = listing.event?.city ?? ''
   const dateStr   = listing.event?.date
-    ? new Date(listing.event.date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()
+    ? (() => { const [y, m, d] = listing.event.date.split('-').map(Number); return new Date(y, m - 1, d, 12).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() })()
     : ''
 
   return (
-    <div className="group flex flex-col border border-[#252420] hover:border-[#3A3834] transition-colors duration-200" style={{ background: 'var(--bg-card)' }}>
-      <div className="h-12 relative overflow-hidden flex-shrink-0">
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#1A1A2E,#2D1B69)' }} />
+    <div className="group flex flex-col border border-[#252420] hover:border-[#C8A04A]/30 transition-colors duration-200" style={{ background: 'var(--bg-card)' }}>
+      <div className="h-11 relative overflow-hidden flex-shrink-0">
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#1A1710,#2A2218)' }} />
         <div className="absolute inset-0 flex items-center justify-between px-4">
           <span className="badge badge-muted">BOLETA</span>
-          <span className="flex items-center gap-1 font-sans font-semibold uppercase" style={{ fontSize: '9px', letterSpacing: '0.1em', color: 'var(--green)' }}>
+          <span className="flex items-center gap-1 font-sans font-semibold uppercase" style={{ fontSize: '9px', letterSpacing: '0.1em', color: '#4ADE80' }}>
             <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
@@ -81,7 +81,7 @@ function BuyModal({ listing, onClose }: { listing: DbListing; onClose: () => voi
   const eventName = listing.event?.name ?? 'Evento'
   const city      = listing.event?.city ?? ''
   const dateStr   = listing.event?.date
-    ? new Date(listing.event.date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()
+    ? (() => { const [y, m, d] = listing.event.date.split('-').map(Number); return new Date(y, m - 1, d, 12).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() })()
     : ''
 
   async function handleConfirm() {
@@ -161,7 +161,7 @@ function BuyModal({ listing, onClose }: { listing: DbListing; onClose: () => voi
 
         {(state === 'form' || state === 'loading') && (
           <>
-            <div className="h-10 relative overflow-hidden" style={{ background: 'linear-gradient(135deg,#1A1A2E,#2D1B69)' }} />
+            <div className="h-10 relative overflow-hidden" style={{ background: 'linear-gradient(135deg,#1A1710,#2A2218)' }} />
             <div className="flex items-start justify-between p-5 border-b" style={{ borderColor: 'var(--border)' }}>
               <div>
                 <p className="t-label mb-1.5" style={{ color: 'var(--accent)' }}>{dateStr} · {city}</p>

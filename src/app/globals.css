@@ -33,6 +33,9 @@
     --accent-fg:    var(--ink);
     --border:       var(--ink-border);
     --border-mid:   var(--ink-border-mid);
+    --yellow:       #E0B560;
+    --green:        #4ADE80;
+    --red:          #F87171;
 
     /* ── Typography ── */
     --font-display: var(--font-space), 'Space Grotesk', system-ui, sans-serif;
@@ -322,6 +325,9 @@
   .text-accent  { color: var(--gold); }
   .text-muted   { color: var(--champagne-mid); }
   .text-subtle  { color: var(--champagne-sub); }
+  .text-yellow  { color: var(--yellow); }
+  .text-green   { color: var(--green); }
+  .text-red     { color: var(--red); }
   .bg-surface   { background: var(--bg-surface); }
   .bg-card      { background: var(--bg-card); }
   .bg-raised    { background: var(--bg-raised); }
