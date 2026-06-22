@@ -1,44 +1,43 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Reveal from '@/components/ui/Reveal'
 import { formatCOP } from '@/lib/utils'
 
-/* ── Data ── */
-const EVENTS = [
-  {
-    id: '2',  name: 'Colombia vs Portugal', sub: 'FIFA Mundial 2026 · Grupo K',
-    date: '27 Jun 2026', city: 'Miami',      cat: 'MUNDIAL',   avail: 3,  seeking: 89, price: 1200000,
-    visual: 'linear-gradient(150deg,#0A2515 0%,#155C30 50%,#9A7800 100%)',
-  },
-  {
-    id: '1',  name: 'Karol G',              sub: 'Viajando Por el Mundo Tour',
-    date: '04 Dic 2026', city: 'Bogotá',     cat: 'CONCIERTO', avail: 12, seeking: 34, price: 380000,
-    visual: 'linear-gradient(150deg,#1A0635 0%,#5B0FA0 55%,#C2185B 100%)',
-  },
-  {
-    id: '4',  name: 'Iron Maiden',          sub: 'Run For Your Lives Tour',
-    date: '11 Oct 2026', city: 'Bogotá',     cat: 'ROCK',      avail: 5,  seeking: 17, price: 320000,
-    visual: 'linear-gradient(150deg,#080808 0%,#220000 50%,#550000 100%)',
-  },
-  {
-    id: '3',  name: 'Gorillaz',             sub: 'The Mountain Tour',
-    date: '18 Nov 2026', city: 'Bogotá',     cat: 'CONCIERTO', avail: 8,  seeking: 21, price: 290000,
-    visual: 'linear-gradient(150deg,#091520 0%,#0D3040 55%,#C2560A 100%)',
-  },
-  {
-    id: '5',  name: 'EDC Colombia',         sub: 'Festival electrónico 2026',
-    date: '10 Oct 2026', city: 'Tocancipá',  cat: 'FESTIVAL',  avail: 20, seeking: 45, price: 180000,
-    visual: 'linear-gradient(150deg,#020C1A 0%,#103560 55%,#5B2FCF 100%)',
-  },
-  {
-    id: '7',  name: 'Morat',               sub: 'YEM World Tour',
-    date: '15 Ago 2026', city: 'Bogotá',     cat: 'CONCIERTO', avail: 6,  seeking: 19, price: 240000,
-    visual: 'linear-gradient(150deg,#0A0A1A 0%,#1A0060 55%,#3A40A0 100%)',
-  },
-]
+/* ── DB event mapped to UI shape ── */
+interface UiEvent {
+  id: string
+  name: string
+  sub: string
+  date: string
+  city: string
+  cat: string
+  visual: string
+  avail: number
+  seeking: number
+  price: number
+}
+
+function mapEvent(ev: Record<string, unknown>): UiEvent {
+  const raw = ev.date as string
+  const formatted = raw
+    ? new Date(raw).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+    : ''
+  return {
+    id:      String(ev.id),
+    name:    String(ev.name ?? ''),
+    sub:     String(ev.artist ?? ev.venue ?? ''),
+    date:    formatted,
+    city:    String(ev.city ?? ''),
+    cat:     String(ev.category ?? 'OTRO'),
+    visual:  String(ev.visual ?? 'linear-gradient(135deg,#1B1B26,#2A2A3A)'),
+    avail:   0,
+    seeking: 0,
+    price:   0,
+  }
+}
 
 const CATS = [
   { id: 'all',       label: 'Todos' },
@@ -82,7 +81,7 @@ function catBadge(cat: string) {
 
 /* ── Mosaic card (hero only) ── */
 function PosterCard({ ev, width, animClass, style }: {
-  ev: typeof EVENTS[0]; width: number; animClass: string; style?: React.CSSProperties
+  ev: UiEvent; width: number; animClass: string; style?: React.CSSProperties
 }) {
   return (
     <div
@@ -105,7 +104,7 @@ function PosterCard({ ev, width, animClass, style }: {
 }
 
 /* ── Event card ── */
-function EventCard({ ev }: { ev: typeof EVENTS[0] }) {
+function EventCard({ ev }: { ev: UiEvent }) {
   const isHot  = ev.seeking >= 40
   const isLow  = ev.avail > 0 && ev.avail <= 5
   const isSold = ev.avail === 0
@@ -209,18 +208,30 @@ function Step({ n, title, desc, isLast, accent }: {
    PÁGINA
 ═════════════════════════════════════ */
 export default function Landing() {
+  const [events,    setEvents]    = useState<UiEvent[]>([])
+  const [loadingEv, setLoadingEv] = useState(true)
   const [activeCat, setActiveCat] = useState('all')
   const [query,     setQuery]     = useState('')
   const eventsRef = useRef<HTMLElement>(null)
 
-  const catCounts = useMemo(() => {
-    const c: Record<string, number> = { all: EVENTS.length }
-    EVENTS.forEach(ev => { c[ev.cat] = (c[ev.cat] ?? 0) + 1 })
-    return c
+  useEffect(() => {
+    fetch('/api/events')
+      .then(r => r.json())
+      .then(data => {
+        setEvents(Array.isArray(data) ? data.map(mapEvent) : [])
+        setLoadingEv(false)
+      })
+      .catch(() => setLoadingEv(false))
   }, [])
 
+  const catCounts = useMemo(() => {
+    const c: Record<string, number> = { all: events.length }
+    events.forEach(ev => { c[ev.cat] = (c[ev.cat] ?? 0) + 1 })
+    return c
+  }, [events])
+
   const filtered = useMemo(() => {
-    let evs = EVENTS
+    let evs = events
     if (activeCat !== 'all') evs = evs.filter(e => e.cat === activeCat)
     if (query.trim()) {
       const q = query.toLowerCase()
@@ -231,7 +242,7 @@ export default function Landing() {
       )
     }
     return evs
-  }, [activeCat, query])
+  }, [events, activeCat, query])
 
   const hasFilter = query.trim() || activeCat !== 'all'
 
@@ -332,15 +343,21 @@ export default function Landing() {
 
               {/* Right: floating mosaic (desktop only) */}
               <div className="hidden md:block relative h-[480px] animate-fade-up animate-delay-3">
-                <div className="absolute" style={{ top: '20px', left: '0px', zIndex: 1, opacity: 0.78 }}>
-                  <PosterCard ev={EVENTS[1]} width={178} animClass="mosaic-1" />
-                </div>
-                <div className="absolute" style={{ top: '60px', left: '118px', zIndex: 3 }}>
-                  <PosterCard ev={EVENTS[0]} width={214} animClass="mosaic-2" />
-                </div>
-                <div className="absolute" style={{ bottom: '30px', right: '0px', zIndex: 2, opacity: 0.80 }}>
-                  <PosterCard ev={EVENTS[4]} width={174} animClass="mosaic-3" />
-                </div>
+                {events[1] && (
+                  <div className="absolute" style={{ top: '20px', left: '0px', zIndex: 1, opacity: 0.78 }}>
+                    <PosterCard ev={events[1]} width={178} animClass="mosaic-1" />
+                  </div>
+                )}
+                {events[0] && (
+                  <div className="absolute" style={{ top: '60px', left: '118px', zIndex: 3 }}>
+                    <PosterCard ev={events[0]} width={214} animClass="mosaic-2" />
+                  </div>
+                )}
+                {events[2] && (
+                  <div className="absolute" style={{ bottom: '30px', right: '0px', zIndex: 2, opacity: 0.80 }}>
+                    <PosterCard ev={events[2]} width={174} animClass="mosaic-3" />
+                  </div>
+                )}
 
                 {/* Floating badges */}
                 <div className="absolute left-0 bottom-10 z-10 bg-[#1B1B26] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.50)] px-4 py-3 border border-white/8">
@@ -458,13 +475,28 @@ export default function Landing() {
           </div>
 
           {/* Grid */}
-          {filtered.length > 0 ? (
+          {loadingEv ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="rounded-2xl overflow-hidden border animate-pulse"
+                  style={{ background: 'var(--ink-mid)', borderColor: 'var(--ink-border)', aspectRatio: '3/4' }} />
+              ))}
+            </div>
+          ) : filtered.length > 0 ? (
             <div key={`${activeCat}-${query}`} className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
               {filtered.map((ev, i) => (
                 <Reveal key={ev.id} delay={i * 50}>
                   <EventCard ev={ev} />
                 </Reveal>
               ))}
+            </div>
+          ) : events.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-[36px] mb-3">🎭</p>
+              <p className="text-[16px] font-semibold text-[#EDE9DF]">Próximamente</p>
+              <p className="text-[14px] text-[#EDE9DF]/40 mt-1 max-w-[280px] mx-auto">
+                Estamos cargando los primeros eventos. Vuelve pronto.
+              </p>
             </div>
           ) : (
             <div className="py-16 text-center">
@@ -473,10 +505,7 @@ export default function Landing() {
               <p className="text-[14px] text-[#EDE9DF]/40 mt-1 max-w-[260px] mx-auto">
                 Intentá con otro artista, ciudad o categoría
               </p>
-              <button
-                onClick={() => { setQuery(''); setActiveCat('all') }}
-                className="btn-primary mt-6 mx-auto"
-              >
+              <button onClick={() => { setQuery(''); setActiveCat('all') }} className="btn-primary mt-6 mx-auto">
                 Ver todos los eventos
               </button>
             </div>

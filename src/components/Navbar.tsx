@@ -1,9 +1,20 @@
 'use client'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function Navbar() {
-  const [open, setOpen] = useState(false)
+  const [open,    setOpen]    = useState(false)
+  const [authed,  setAuthed]  = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setAuthed(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 bg-[#09090E]/90 backdrop-blur-md">
@@ -36,8 +47,18 @@ export default function Navbar() {
             className="text-sm font-medium text-[#EDE9DF]/50 hover:text-[#EDE9DF] transition-colors px-3 py-2 rounded-lg hover:bg-white/5">
             Buscar boleta
           </Link>
-          <Link href="/vender"
-            className="btn-primary !py-2 !px-5 !text-[13px] ml-2">
+          {authed ? (
+            <Link href="/dashboard"
+              className="text-sm font-medium text-[#EDE9DF]/50 hover:text-[#EDE9DF] transition-colors px-3 py-2 rounded-lg hover:bg-white/5">
+              Mi cuenta
+            </Link>
+          ) : (
+            <Link href="/login"
+              className="text-sm font-medium text-[#EDE9DF]/50 hover:text-[#EDE9DF] transition-colors px-3 py-2 rounded-lg hover:bg-white/5">
+              Ingresar
+            </Link>
+          )}
+          <Link href="/vender" className="btn-primary !py-2 !px-5 !text-[13px] ml-1">
             Vender entradas
           </Link>
         </nav>
@@ -67,9 +88,9 @@ export default function Navbar() {
         <nav className="md:hidden bg-[#111118]" aria-label="Menú móvil">
           <div className="divide-y divide-white/5">
             {[
-              { href: '/eventos',   label: 'Eventos' },
-              { href: '/comprar',   label: 'Buscar boleta' },
-              { href: '/dashboard', label: 'Mi cuenta' },
+              { href: '/eventos',              label: 'Eventos' },
+              { href: '/comprar',              label: 'Buscar boleta' },
+              { href: authed ? '/dashboard' : '/login', label: authed ? 'Mi cuenta' : 'Ingresar' },
             ].map(({ href, label }) => (
               <Link key={href} href={href} onClick={() => setOpen(false)}
                 className="flex items-center px-4 py-4 text-[15px] font-medium text-[#EDE9DF] hover:bg-white/5 transition-colors">
