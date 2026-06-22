@@ -1,11 +1,11 @@
 'use client'
-import { useState, useMemo, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { formatCOP } from '@/lib/utils'
 
-type DbEvent   = { id: string; name: string }
+type DbEvent = { id: string; name: string; date: string; city: string }
 type DbListing = {
   id: string; event_id: string; section: string; quantity: number
   price_per_ticket: number; notes: string | null
@@ -13,78 +13,56 @@ type DbListing = {
   seller: { full_name: string } | null
 }
 
-/* ── Listing card ── */
-function ListingCard({ listing, onSelect }: { listing: DbListing; onSelect: () => void }) {
-  const eventName = listing.event?.name ?? 'Evento'
-  const city      = listing.event?.city ?? ''
-  const dateStr   = listing.event?.date
-    ? (() => { const [y, m, d] = listing.event.date.split('-').map(Number); return new Date(y, m - 1, d, 12).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() })()
-    : ''
+function fmtDate(dateStr: string) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d, 12).toLocaleDateString('es-CO', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
 
+function fmtPrice(val: string) {
+  const n = val.replace(/\D/g, '')
+  return n ? Number(n).toLocaleString('es-CO') : ''
+}
+
+/* ─── Listing row ─── */
+function ListingRow({ listing, onSelect }: { listing: DbListing; onSelect: () => void }) {
   return (
-    <div className="group flex flex-col border border-[#252420] hover:border-[#C8A04A]/30 transition-colors duration-200" style={{ background: 'var(--bg-card)' }}>
-      <div className="h-11 relative overflow-hidden flex-shrink-0">
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#1A1710,#2A2218)' }} />
-        <div className="absolute inset-0 flex items-center justify-between px-4">
-          <span className="badge badge-muted">BOLETA</span>
-          <span className="flex items-center gap-1 font-sans font-semibold uppercase" style={{ fontSize: '9px', letterSpacing: '0.1em', color: '#4ADE80' }}>
-            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            Verificado
-          </span>
-        </div>
+    <div className="group flex items-center gap-4 rounded-xl p-4 border transition-colors duration-150 hover:border-[#C8A04A]/30 cursor-pointer"
+      style={{ background: 'var(--ink-raised)', borderColor: 'rgba(255,255,255,0.07)' }}
+      onClick={onSelect}>
+      {/* Price stub */}
+      <div className="flex-shrink-0 text-center border-r border-dashed border-white/10 pr-4" style={{ minWidth: 80 }}>
+        <p className="text-[17px] font-bold text-[#C8A04A] tabular-nums leading-none" style={{ fontFamily: 'var(--font-display)' }}>
+          {formatCOP(listing.price_per_ticket)}
+        </p>
+        <p className="text-[9px] text-white/25 uppercase tracking-wider mt-0.5">c/u</p>
       </div>
-      <div className="flex flex-col flex-1 p-5 gap-4">
-        <div>
-          <p className="t-label mb-1.5" style={{ color: 'var(--accent)' }}>{dateStr} · {city}</p>
-          <h3 className="font-poster leading-tight" style={{ fontSize: '18px', letterSpacing: '-0.02em', color: 'var(--fg)' }}>
-            {eventName}
-          </h3>
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold text-[#EDE9DF] truncate">{listing.section}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[10px] text-white/30">×{listing.quantity} boleta{listing.quantity > 1 ? 's' : ''}</span>
+          <span className="text-[9px] text-[#4ADE80] font-medium">· Verificado</span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="t-label px-2.5 py-1.5 border" style={{ color: 'var(--fg-muted)', borderColor: 'var(--border-mid)' }}>
-            {listing.section}
-          </span>
-          <span className="t-label" style={{ color: 'var(--fg-subtle)' }}>
-            {listing.quantity} boleta{listing.quantity > 1 ? 's' : ''}
-          </span>
-        </div>
-        {listing.notes && (
-          <p className="font-sans text-[12px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{listing.notes}</p>
-        )}
-        <div className="flex-1" />
-        <div className="perforation" />
-        <div className="flex items-end justify-between gap-3 pt-1">
-          <div>
-            <p className="t-label mb-1" style={{ color: 'var(--fg-subtle)' }}>por boleta</p>
-            <p className="nums leading-none" style={{ fontSize: '24px', fontFamily: 'var(--font-ticket)', color: 'var(--fg)' }}>
-              {formatCOP(listing.price_per_ticket)}
-            </p>
-          </div>
-          <button onClick={onSelect} className="btn-primary flex-shrink-0 cursor-pointer">
-            Quiero esta
-            <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="square" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-          </button>
-        </div>
+        {listing.notes && <p className="text-[11px] text-white/25 mt-0.5 truncate">{listing.notes}</p>}
       </div>
+      {/* CTA */}
+      <button className="flex-shrink-0 text-[12px] font-semibold text-[#C8A04A] hover:text-[#E09438] transition-colors whitespace-nowrap"
+        onClick={e => { e.stopPropagation(); onSelect() }}>
+        Quiero esta →
+      </button>
     </div>
   )
 }
 
-/* ── Buy modal ── */
-function BuyModal({ listing, onClose }: { listing: DbListing; onClose: () => void }) {
-  const [state, setState] = useState<'form' | 'loading' | 'done' | 'needsLogin' | 'error'>('form')
-  const [errMsg, setErrMsg] = useState('')
-  const eventName = listing.event?.name ?? 'Evento'
-  const city      = listing.event?.city ?? ''
-  const dateStr   = listing.event?.date
-    ? (() => { const [y, m, d] = listing.event.date.split('-').map(Number); return new Date(y, m - 1, d, 12).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() })()
-    : ''
+/* ─── Confirm modal (for specific listing) ─── */
+function ConfirmModal({ listing, onClose }: { listing: DbListing; onClose: () => void }) {
+  const router = useRouter()
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [err, setErr] = useState('')
 
-  async function handleConfirm() {
+  async function confirm() {
     setState('loading')
     try {
       const res = await fetch('/api/requests', {
@@ -98,126 +76,77 @@ function BuyModal({ listing, onClose }: { listing: DbListing; onClose: () => voi
           notes:     `Interesado en boleta — ${listing.section}`,
         }),
       })
-      if (res.status === 401) { setState('needsLogin'); return }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setErrMsg(body.error ?? 'Error al enviar.')
-        setState('error')
-        return
-      }
+      if (res.status === 401) { router.push(`/login?next=/comprar?event=${listing.event_id}`); return }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Error'); setState('error'); return }
       setState('done')
-    } catch {
-      setErrMsg('Error de conexión.')
-      setState('error')
-    }
+    } catch { setErr('Error de conexión'); setState('error') }
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.85)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="w-full max-w-md rounded-2xl overflow-hidden animate-fade-up border"
-        style={{ background: 'var(--ink-mid)', borderColor: 'rgba(255,255,255,0.08)' }}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.80)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden border animate-fade-up"
+        style={{ background: 'var(--ink-mid)', borderColor: 'rgba(255,255,255,0.09)' }}>
 
-        {state === 'done' && (
-          <div className="p-8 text-center space-y-5">
-            <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center border-2" style={{ borderColor: '#C8A04A', color: '#C8A04A' }}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        {state === 'done' ? (
+          <div className="p-8 text-center space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-full border-2 border-[#C8A04A] flex items-center justify-center">
+              <svg className="w-6 h-6 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <div>
-              <h2 className="text-[22px] font-bold leading-tight text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>¡Solicitud enviada!</h2>
-              <p className="text-[13px] leading-relaxed mt-2 max-w-[240px] mx-auto" style={{ color: 'rgba(237,233,223,0.42)' }}>
-                El sistema buscará el match para{' '}<strong className="text-[#EDE9DF]">{eventName}</strong>. Te avisamos por WhatsApp.
+              <p className="text-[18px] font-bold text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>¡Solicitud enviada!</p>
+              <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                Te avisamos por WhatsApp cuando haya match con el vendedor.
               </p>
             </div>
-            <button onClick={onClose} className="btn-outline w-full justify-center cursor-pointer !py-3.5">Cerrar</button>
+            <button onClick={onClose} className="btn-outline w-full justify-center !py-3 !text-[13px] cursor-pointer">Cerrar</button>
           </div>
-        )}
-
-        {state === 'needsLogin' && (
-          <div className="p-8 text-center space-y-4">
-            <div className="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center" style={{ background: 'rgba(200,160,74,0.10)', border: '1px solid rgba(200,160,74,0.20)' }}>
-              <svg className="w-5 h-5 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[17px] font-bold text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>Inicia sesión primero</p>
-              <p className="text-[13px] mt-1" style={{ color: 'rgba(237,233,223,0.40)' }}>Necesitas una cuenta para enviar solicitudes.</p>
-            </div>
-            <div className="flex gap-2.5">
-              <Link href="/login?next=/comprar" className="btn-primary flex-1 justify-center !py-3 !text-[13px]">Iniciar sesión</Link>
-              <button onClick={onClose} className="btn-outline flex-1 justify-center !py-3 !text-[13px] cursor-pointer">Cancelar</button>
-            </div>
-          </div>
-        )}
-
-        {state === 'error' && (
-          <div className="p-8 text-center space-y-4">
-            <p className="text-[17px] font-bold" style={{ color: '#F87171', fontFamily: 'var(--font-display)' }}>Ocurrió un error</p>
-            <p className="text-[13px]" style={{ color: 'rgba(237,233,223,0.40)' }}>{errMsg}</p>
-            <div className="flex gap-2.5">
-              <button onClick={() => setState('form')} className="btn-primary flex-1 justify-center cursor-pointer !py-3 !text-[13px]">Reintentar</button>
-              <button onClick={onClose} className="btn-outline flex-1 justify-center cursor-pointer !py-3 !text-[13px]">Cerrar</button>
-            </div>
-          </div>
-        )}
-
-        {(state === 'form' || state === 'loading') && (
+        ) : (
           <>
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            <div className="flex items-start justify-between gap-3 p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(200,160,74,0.65)' }}>
-                  {dateStr}{city ? ` · ${city}` : ''}
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#C8A04A]/70 mb-0.5">Confirmar interés</p>
+                <p className="text-[16px] font-bold text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>
+                  {listing.event?.name}
                 </p>
-                <h2 className="text-[18px] font-bold text-[#EDE9DF] leading-tight" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
-                  {eventName}
-                </h2>
               </div>
-              <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors flex-shrink-0 mt-0.5" aria-label="Cerrar">
-                <svg className="w-4 h-4" style={{ color: 'rgba(237,233,223,0.40)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button onClick={onClose} className="p-1 cursor-pointer" style={{ color: 'rgba(237,233,223,0.35)' }}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-
-            {/* Ticket detail */}
-            <div className="mx-5 my-4 rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'var(--ink-raised)' }}>
-              <div className="flex items-center">
-                <div className="px-4 py-3.5 border-r border-dashed" style={{ borderColor: 'rgba(255,255,255,0.10)', minWidth: 96 }}>
-                  <p className="text-[9px] font-medium uppercase tracking-widest mb-0.5" style={{ color: 'rgba(237,233,223,0.30)' }}>precio</p>
-                  <p className="text-[18px] font-bold tabular-nums leading-none" style={{ color: '#C8A04A', fontFamily: 'var(--font-display)' }}>
-                    {formatCOP(listing.price_per_ticket)}
-                  </p>
-                </div>
-                <div className="px-4 py-3 space-y-0.5">
-                  <p className="text-[13px] font-semibold text-[#EDE9DF]">{listing.section}</p>
-                  <p className="text-[11px]" style={{ color: 'rgba(237,233,223,0.38)' }}>
-                    {listing.quantity} boleta{listing.quantity > 1 ? 's' : ''}
-                  </p>
+            <div className="p-5 space-y-4">
+              <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'var(--ink-raised)' }}>
+                <div className="flex">
+                  <div className="px-4 py-3.5 border-r border-dashed border-white/10" style={{ minWidth: 90 }}>
+                    <p className="text-[9px] text-white/25 uppercase tracking-wider mb-0.5">precio</p>
+                    <p className="text-[18px] font-bold text-[#C8A04A] tabular-nums" style={{ fontFamily: 'var(--font-display)' }}>
+                      {formatCOP(listing.price_per_ticket)}
+                    </p>
+                  </div>
+                  <div className="px-4 py-3.5">
+                    <p className="text-[13px] font-semibold text-[#EDE9DF]">{listing.section}</p>
+                    <p className="text-[11px] text-white/30 mt-0.5">×{listing.quantity} boleta{listing.quantity > 1 ? 's' : ''}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className="px-5 pb-5 space-y-4">
-              <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(237,233,223,0.35)' }}>
-                Al confirmar, el sistema notifica al vendedor. Si hay match, recibirás sus datos de contacto por WhatsApp.
+              {state === 'error' && (
+                <p className="text-[12px] text-[#F87171] p-3 rounded-lg bg-[rgba(248,113,113,0.08)] border border-[rgba(248,113,113,0.15)]">{err}</p>
+              )}
+              <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(237,233,223,0.28)' }}>
+                Al confirmar, el sistema notifica al vendedor y te conecta si hay match.
               </p>
               <div className="flex gap-2.5">
-                <button onClick={onClose} className="btn-outline flex-1 justify-center cursor-pointer !py-3.5 !text-[13px]">Cancelar</button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={state === 'loading'}
-                  className="btn-primary flex-1 justify-center cursor-pointer disabled:opacity-60 !py-3.5 !text-[13px]"
-                >
+                <button onClick={onClose} className="btn-outline flex-1 justify-center !py-3.5 !text-[13px] cursor-pointer">Cancelar</button>
+                <button onClick={confirm} disabled={state === 'loading'}
+                  className="btn-primary flex-1 justify-center !py-3.5 !text-[13px] cursor-pointer disabled:opacity-50">
                   {state === 'loading'
                     ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    : 'Confirmar interés'}
+                    : 'Confirmar'}
                 </button>
               </div>
             </div>
@@ -228,21 +157,49 @@ function BuyModal({ listing, onClose }: { listing: DbListing; onClose: () => voi
   )
 }
 
-/* ── Buy request form (collapsible) ── */
-function BuyRequestForm({ events }: { events: DbEvent[] }) {
-  const [open,      setOpen]      = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+/* ════ PÁGINA ════ */
+function ComprarContent() {
+  const searchParams  = useSearchParams()
+  const router        = useRouter()
+  const eventIdParam  = searchParams.get('event') ?? ''
+
+  const [events,   setEvents]   = useState<DbEvent[]>([])
+  const [listings, setListings] = useState<DbListing[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [selected, setSelected] = useState<DbListing | null>(null)
+
+  /* Form */
+  const [form,       setForm]       = useState({ eventId: eventIdParam, section: '', qty: 1, maxPrice: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [submitted,  setSubmitted]  = useState(false)
   const [apiError,   setApiError]   = useState('')
-  const [form, setForm] = useState({ eventId: '', section: '', qty: 1, maxPrice: '', })
 
-  function fmt(val: string) {
-    const n = val.replace(/\D/g, '')
-    return n ? Number(n).toLocaleString('es-CO') : ''
-  }
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/events').then(r => r.json()),
+      fetch('/api/listings').then(r => r.json()),
+    ]).then(([evData, listData]) => {
+      setEvents(Array.isArray(evData)  ? evData  : [])
+      setListings(Array.isArray(listData) ? listData : [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
 
-  async function handleSubmit() {
-    if (!form.eventId || !form.maxPrice) return
+  /* Keep form.eventId in sync if URL param arrives after load */
+  useEffect(() => {
+    if (eventIdParam) setForm(f => ({ ...f, eventId: eventIdParam }))
+  }, [eventIdParam])
+
+  const selectedEvent = events.find(e => e.id === form.eventId) ?? null
+  const availableListings = form.eventId
+    ? listings.filter(l => l.event_id === form.eventId)
+    : listings
+
+  const formValid = !!form.eventId && !!form.maxPrice && parseInt(form.maxPrice.replace(/\D/g, '')) >= 10000
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!formValid) return
     setApiError('')
     setSubmitting(true)
     const rawPrice = parseInt(form.maxPrice.replace(/\D/g, '')) || 0
@@ -259,13 +216,12 @@ function BuyRequestForm({ events }: { events: DbEvent[] }) {
         }),
       })
       if (res.status === 401) {
-        setApiError('Debes iniciar sesión para dejar una solicitud.')
-        setSubmitting(false)
+        router.push(`/login?next=/comprar${form.eventId ? `?event=${form.eventId}` : ''}`)
         return
       }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        setApiError(body.error ?? 'Error al guardar.')
+        setApiError(body.error ?? 'Error al guardar. Intenta de nuevo.')
         setSubmitting(false)
         return
       }
@@ -277,219 +233,263 @@ function BuyRequestForm({ events }: { events: DbEvent[] }) {
     }
   }
 
-  if (submitted) {
-    return (
-      <div className="p-8 text-center space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-        <p className="font-poster" style={{ fontSize: '22px', letterSpacing: '-0.02em', color: 'var(--fg)' }}>¡Solicitud guardada!</p>
-        <p className="font-sans text-[13px]" style={{ color: 'var(--fg-muted)' }}>
-          Te avisamos en cuanto haya un match.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ border: '1px solid var(--border)' }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between p-5 cursor-pointer hover:bg-[#1C1C1A] transition-colors"
-        style={{ background: 'var(--bg-surface)' }}
-        aria-expanded={open}
-      >
-        <div className="text-left">
-          <p className="font-sans font-semibold text-[15px]" style={{ color: 'var(--fg)' }}>¿No encuentras lo que buscas?</p>
-          <p className="font-sans text-[12px] mt-0.5" style={{ color: 'var(--fg-muted)' }}>Deja una solicitud y te avisamos cuando aparezca una boleta.</p>
-        </div>
-        <svg className="w-4 h-4 flex-shrink-0 ml-4 transition-transform duration-200"
-          style={{ color: 'var(--fg-muted)', transform: open ? 'rotate(45deg)' : 'none' }}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="square" strokeWidth={2} d="M12 5v14M5 12h14" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="p-5 space-y-4 border-t animate-fade-up" style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5 sm:col-span-2">
-              <label className="t-label block" style={{ color: 'var(--fg-muted)' }}>Evento</label>
-              <select className="input-field" value={form.eventId} onChange={e => setForm(f => ({ ...f, eventId: e.target.value }))}>
-                <option value="">Seleccionar evento…</option>
-                {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="t-label block" style={{ color: 'var(--fg-muted)' }}>Sección (opcional)</label>
-              <input type="text" className="input-field" placeholder="General, Palco…" value={form.section} onChange={e => setForm(f => ({ ...f, section: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="t-label block" style={{ color: 'var(--fg-muted)' }}>Precio máximo (COP)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: 'var(--fg-muted)' }} aria-hidden="true">$</span>
-                <input type="text" inputMode="numeric" className="input-field pl-8" placeholder="500.000" value={form.maxPrice} onChange={e => setForm(f => ({ ...f, maxPrice: fmt(e.target.value) }))} />
-              </div>
-            </div>
-          </div>
-
-          {apiError && (
-            <p className="text-sm" style={{ color: '#F87171' }}>
-              {apiError}{' '}
-              {apiError.includes('sesión') && <Link href="/login?next=/comprar" className="underline">Iniciar sesión</Link>}
-            </p>
-          )}
-
-          <button
-            onClick={handleSubmit}
-            disabled={!form.eventId || !form.maxPrice || submitting}
-            className="btn-primary w-full justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {submitting
-              ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              : <>Dejar solicitud <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="square" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg></>}
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ════ PÁGINA PRINCIPAL ════ */
-function ComprarContent() {
-  const searchParams = useSearchParams()
-  const initialEvent = searchParams.get('event') ?? 'ALL'
-
-  const [events,          setEvents]          = useState<DbEvent[]>([])
-  const [listings,        setListings]        = useState<DbListing[]>([])
-  const [loading,         setLoading]         = useState(true)
-  const [activeFilter,    setActiveFilter]    = useState(initialEvent)
-  const [selectedListing, setSelectedListing] = useState<DbListing | null>(null)
-
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/events').then(r => r.json()),
-      fetch('/api/listings').then(r => r.json()),
-    ]).then(([evData, listData]) => {
-      setEvents(Array.isArray(evData) ? evData : [])
-      setListings(Array.isArray(listData) ? listData : [])
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
-
-  const filters = useMemo(() => [
-    { id: 'ALL', label: 'Todos' },
-    ...events.map(e => ({ id: e.id, label: e.name })),
-  ], [events])
-
-  const filtered = useMemo(
-    () => activeFilter === 'ALL' ? listings : listings.filter(l => l.event_id === activeFilter),
-    [listings, activeFilter]
-  )
-
   return (
     <>
       <Navbar />
       <main className="pt-14 min-h-dvh">
 
-        {/* Header */}
-        <div className="border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="max-w-7xl mx-auto px-5 py-12">
-            <Link href="/eventos" className="inline-flex items-center gap-2 mb-6 t-label hover:text-fg transition-colors duration-150" style={{ color: 'var(--fg-muted)' }} aria-label="Volver a eventos">
-              <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="square" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        {/* ── Page header ── */}
+        <div className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+          <div className="max-w-5xl mx-auto px-4 py-8">
+            <Link href="/eventos"
+              className="inline-flex items-center gap-1.5 mb-5 text-[11px] font-medium transition-colors"
+              style={{ color: 'rgba(237,233,223,0.35)', letterSpacing: '0.02em' }}>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               Todos los eventos
             </Link>
-            <h1 className="font-poster leading-tight" style={{ fontSize: 'clamp(36px,6vw,72px)', letterSpacing: '-0.04em', color: 'var(--fg)' }}>
-              BOLETAS<br /><span style={{ color: 'var(--accent)' }}>DISPONIBLES</span>
+            <h1 className="text-[32px] sm:text-[40px] font-bold text-[#EDE9DF] leading-none tracking-tight"
+              style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.04em' }}>
+              Buscar boleta
             </h1>
-            <p className="font-sans text-[14px] mt-3 leading-relaxed" style={{ color: 'var(--fg-muted)', maxWidth: '420px' }}>
-              Contacta directamente al vendedor. Sin intermediarios. Matching automático.
-            </p>
-          </div>
-
-          {/* Filter tabs */}
-          <div className="max-w-7xl mx-auto px-5">
-            <div className="flex gap-0 overflow-x-auto scrollbar-none -mx-5 px-5 md:mx-0 md:px-0">
-              {filters.map(({ id, label }) => {
-                const count = id === 'ALL' ? listings.length : listings.filter(l => l.event_id === id).length
-                return (
-                  <button
-                    key={id}
-                    onClick={() => setActiveFilter(id)}
-                    className="flex-shrink-0 px-5 py-3.5 t-label border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap"
-                    style={{
-                      borderBottomColor: activeFilter === id ? 'var(--accent)' : 'transparent',
-                      color: activeFilter === id ? 'var(--fg)' : 'var(--fg-muted)',
-                    }}
-                    aria-pressed={activeFilter === id}
-                  >
-                    {label.length > 20 ? label.slice(0, 18) + '…' : label}
-                    <span className="ml-2 opacity-50">{count}</span>
-                  </button>
-                )
-              })}
-            </div>
+            {selectedEvent ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[12px] font-semibold text-[#C8A04A]">{selectedEvent.name}</span>
+                <span className="text-[11px]" style={{ color: 'rgba(237,233,223,0.28)' }}>
+                  · {fmtDate(selectedEvent.date)} · {selectedEvent.city}
+                </span>
+              </div>
+            ) : (
+              <p className="text-[13px] mt-2" style={{ color: 'rgba(237,233,223,0.35)' }}>
+                Deja tu solicitud o elige una boleta disponible.
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Listings */}
-        <div className="max-w-7xl mx-auto px-5 py-10">
-          <div className="flex items-center justify-between mb-6">
-            <p className="t-label">
-              {loading ? 'Cargando...' : `${filtered.length} boleta${filtered.length !== 1 ? 's' : ''} disponible${filtered.length !== 1 ? 's' : ''}`}
-            </p>
-            <Link href="/vender" className="btn-ghost">+ Publicar boleta</Link>
-          </div>
+        {/* ── Body ── */}
+        <div className="max-w-5xl mx-auto px-4 py-8">
+          <div className="grid md:grid-cols-[1fr_340px] gap-8 items-start">
 
-          {loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px" style={{ background: 'var(--border)' }}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="animate-pulse bg-[var(--bg)]" style={{ minHeight: 260 }}>
-                  <div className="h-12 bg-white/5" />
-                  <div className="p-5 space-y-3">
-                    <div className="h-3 bg-white/5 rounded w-32" />
-                    <div className="h-5 bg-white/8 rounded w-3/4" />
-                    <div className="h-8 bg-white/5 rounded w-20" />
+            {/* ── LEFT: Listings ── */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[13px] font-bold text-[#EDE9DF] uppercase tracking-wider">
+                  Boletas disponibles
+                  <span className="ml-2 text-[11px] font-normal" style={{ color: 'rgba(237,233,223,0.30)' }}>
+                    ({loading ? '…' : availableListings.length})
+                  </span>
+                </h2>
+                {/* Event filter (only show when no event pre-selected) */}
+                {!eventIdParam && events.length > 0 && !loading && (
+                  <select
+                    className="input-field !w-auto !py-1.5 !text-[12px] !px-3"
+                    value={form.eventId}
+                    onChange={e => setForm(f => ({ ...f, eventId: e.target.value }))}
+                    aria-label="Filtrar por evento"
+                  >
+                    <option value="">Todos los eventos</option>
+                    {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                  </select>
+                )}
+              </div>
+
+              {loading ? (
+                <div className="space-y-2">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-[72px] rounded-xl animate-pulse" style={{ background: 'var(--ink-raised)' }} />
+                  ))}
+                </div>
+              ) : availableListings.length > 0 ? (
+                <div className="space-y-2">
+                  {availableListings.map(l => (
+                    <ListingRow key={l.id} listing={l} onSelect={() => setSelected(l)} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed py-12 px-6 text-center"
+                  style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+                  <p className="text-[15px] font-semibold text-[#EDE9DF]/40">
+                    {form.eventId ? 'Aún no hay boletas para este evento' : 'No hay boletas disponibles'}
+                  </p>
+                  <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: 'rgba(237,233,223,0.22)' }}>
+                    Deja tu solicitud y te avisamos en el momento que alguien publique una.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── RIGHT: Request form ── */}
+            <div className="md:sticky md:top-20">
+              {submitted ? (
+                <div className="rounded-2xl border p-8 text-center space-y-5"
+                  style={{ background: 'var(--ink-mid)', borderColor: 'rgba(200,160,74,0.20)' }}>
+                  <div className="w-14 h-14 mx-auto rounded-full border-2 border-[#C8A04A] flex items-center justify-center">
+                    <svg className="w-6 h-6 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[18px] font-bold text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>
+                      ¡Solicitud guardada!
+                    </p>
+                    <p className="text-[12px] mt-2 leading-relaxed" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                      En cuanto aparezca una boleta que encaje, te avisamos por WhatsApp y email.
+                    </p>
+                  </div>
+                  <div className="space-y-2.5">
+                    <button
+                      onClick={() => { setSubmitted(false); setForm(f => ({ ...f, section: '', maxPrice: '' })) }}
+                      className="btn-outline w-full justify-center !py-3 !text-[13px] cursor-pointer">
+                      Dejar otra solicitud
+                    </button>
+                    <Link href="/dashboard" className="btn-ghost w-full justify-center !py-2 !text-[12px] flex">
+                      Ver mis solicitudes →
+                    </Link>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ) : (
+                <form
+                  onSubmit={handleSubmit}
+                  className="rounded-2xl border p-6 space-y-5"
+                  style={{ background: 'var(--ink-mid)', borderColor: 'rgba(255,255,255,0.07)' }}
+                >
+                  {/* Form header */}
+                  <div className="border-b pb-4" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 rounded-full bg-[#C8A04A] animate-pulse" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#C8A04A]/70">
+                        Matching automático
+                      </span>
+                    </div>
+                    <h2 className="text-[20px] font-bold text-[#EDE9DF] leading-tight" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
+                      Dejar solicitud
+                    </h2>
+                    <p className="text-[12px] mt-1 leading-relaxed" style={{ color: 'rgba(237,233,223,0.35)' }}>
+                      Indicá qué buscás y te avisamos cuando aparezca una boleta.
+                    </p>
+                  </div>
 
-          {!loading && filtered.length === 0 && (
-            <div className="py-20 text-center space-y-3">
-              <p className="font-poster" style={{ fontSize: '24px', letterSpacing: '-0.02em', color: 'var(--fg-muted)' }}>
-                {listings.length === 0 ? 'Sin boletas disponibles' : 'Sin resultados para este evento'}
-              </p>
-              <p className="font-sans text-[13px]" style={{ color: 'var(--fg-subtle)' }}>Deja una solicitud y te avisamos cuando aparezca una.</p>
-            </div>
-          )}
+                  {/* Evento */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                      Evento <span className="text-[#C8A04A]">*</span>
+                    </label>
+                    <select
+                      required
+                      className="input-field"
+                      value={form.eventId}
+                      onChange={e => setForm(f => ({ ...f, eventId: e.target.value }))}
+                      disabled={loading}
+                    >
+                      <option value="">{loading ? 'Cargando eventos…' : 'Seleccionar evento…'}</option>
+                      {events.map(ev => (
+                        <option key={ev.id} value={ev.id}>{ev.name} — {ev.city}</option>
+                      ))}
+                    </select>
+                  </div>
 
-          {!loading && filtered.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px" style={{ background: 'var(--border)' }}>
-              {filtered.map(listing => (
-                <div key={listing.id} style={{ background: 'var(--bg)' }}>
-                  <ListingCard listing={listing} onSelect={() => setSelectedListing(listing)} />
-                </div>
-              ))}
-            </div>
-          )}
+                  {/* Sección + Cantidad */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                        Sección
+                      </label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="General, Palco…"
+                        value={form.section}
+                        onChange={e => setForm(f => ({ ...f, section: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                        Cantidad
+                      </label>
+                      <input
+                        type="number"
+                        min={1} max={10}
+                        className="input-field"
+                        value={form.qty}
+                        onChange={e => setForm(f => ({ ...f, qty: Math.min(10, Math.max(1, Number(e.target.value))) }))}
+                      />
+                    </div>
+                  </div>
 
-          <div className="mt-12">
-            <BuyRequestForm events={events} />
+                  {/* Precio máximo */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                      Precio máximo (COP) <span className="text-[#C8A04A]">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] pointer-events-none" style={{ color: 'rgba(237,233,223,0.40)' }}>$</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        className="input-field pl-8"
+                        placeholder="500.000"
+                        value={form.maxPrice}
+                        onChange={e => setForm(f => ({ ...f, maxPrice: fmtPrice(e.target.value) }))}
+                      />
+                    </div>
+                    <p className="text-[10px]" style={{ color: 'rgba(237,233,223,0.22)' }}>Mínimo $10.000</p>
+                  </div>
+
+                  {/* Error */}
+                  {apiError && (
+                    <div className="p-3 rounded-xl text-[12px] text-[#F87171]"
+                      style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                      {apiError}
+                    </div>
+                  )}
+
+                  {/* Submit */}
+                  <button
+                    type="submit"
+                    disabled={!formValid || submitting}
+                    className="btn-primary w-full justify-center !py-4 !text-[14px] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {submitting ? (
+                      <span className="flex items-center gap-2 justify-center">
+                        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Guardando…
+                      </span>
+                    ) : (
+                      <>
+                        Dejar solicitud
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+
+                  <p className="text-[10px] text-center" style={{ color: 'rgba(237,233,223,0.20)' }}>
+                    Te avisamos por WhatsApp y email cuando haya un match
+                  </p>
+                </form>
+              )}
+            </div>
+
           </div>
         </div>
       </main>
 
-      {selectedListing && (
-        <BuyModal listing={selectedListing} onClose={() => setSelectedListing(null)} />
-      )}
+      {selected && <ConfirmModal listing={selected} onClose={() => setSelected(null)} />}
     </>
   )
 }
 
 export default function ComprarPage() {
   return (
-    <Suspense fallback={<div className="pt-14 min-h-dvh flex items-center justify-center"><span className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={
+      <div className="pt-14 min-h-dvh flex items-center justify-center">
+        <span className="w-6 h-6 border-2 border-[#C8A04A] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
       <ComprarContent />
     </Suspense>
   )
