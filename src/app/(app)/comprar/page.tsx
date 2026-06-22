@@ -457,14 +457,23 @@ function ComprarContent() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl py-8 px-5 text-center border border-dashed"
-                  style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                  <p className="text-[14px] font-semibold" style={{ color: 'rgba(237,233,223,0.30)' }}>
-                    {form.eventId ? 'Aún no hay boletas publicadas' : 'No hay boletas disponibles ahora'}
-                  </p>
-                  <p className="text-[11px] mt-1" style={{ color: 'rgba(237,233,223,0.18)' }}>
-                    Deja tu solicitud arriba y te avisamos cuando aparezca una.
-                  </p>
+                <div className="rounded-xl border p-6 text-center space-y-4"
+                  style={{ background: 'rgba(200,160,74,0.04)', borderColor: 'rgba(200,160,74,0.18)' }}>
+                  <div>
+                    <p className="text-[15px] font-semibold text-[#EDE9DF]">
+                      {form.eventId ? 'Aún no hay boletas para este evento' : 'No hay boletas disponibles ahora'}
+                    </p>
+                    <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                      Deja tu solicitud y te avisamos en el momento que aparezca una.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="btn-primary mx-auto !py-3 !px-8 !text-[14px]"
+                  >
+                    Dejar solicitud →
+                  </button>
                 </div>
               )}
             </div>
