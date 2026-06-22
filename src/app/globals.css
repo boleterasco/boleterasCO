@@ -322,6 +322,11 @@
   .font-body    { font-family: var(--font-body) !important; }
   .font-sans    { font-family: var(--font-body) !important; }
 
+  /* Font-weight shortcuts used throughout codebase */
+  .font-700 { font-weight: 700 !important; }
+  .font-800 { font-weight: 800 !important; }
+  .font-600 { font-weight: 600 !important; }
+
   .text-accent  { color: var(--gold); }
   .text-muted   { color: var(--champagne-mid); }
   .text-subtle  { color: var(--champagne-sub); }

@@ -118,91 +118,106 @@ function BuyModal({ listing, onClose }: { listing: DbListing; onClose: () => voi
       style={{ background: 'rgba(0,0,0,0.85)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md animate-fade-up" style={{ background: 'var(--bg-card)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden animate-fade-up border"
+        style={{ background: 'var(--ink-mid)', borderColor: 'rgba(255,255,255,0.08)' }}>
 
         {state === 'done' && (
           <div className="p-8 text-center space-y-5">
-            <div className="w-12 h-12 mx-auto flex items-center justify-center border" style={{ borderColor: 'var(--green)', color: 'var(--green)' }}>
+            <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center border-2" style={{ borderColor: '#C8A04A', color: '#C8A04A' }}>
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="square" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <div>
-              <h2 className="font-poster leading-tight" style={{ fontSize: '28px', letterSpacing: '-0.03em', color: 'var(--fg)' }}>¡Listo!</h2>
-              <p className="font-sans text-[13px] leading-relaxed mt-3" style={{ color: 'var(--fg-muted)' }}>
-                Solicitud enviada para <strong style={{ color: 'var(--fg)' }}>{eventName}</strong> — {listing.section}. El sistema buscará el match y te avisará.
+              <h2 className="text-[22px] font-bold leading-tight text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>¡Solicitud enviada!</h2>
+              <p className="text-[13px] leading-relaxed mt-2 max-w-[240px] mx-auto" style={{ color: 'rgba(237,233,223,0.42)' }}>
+                El sistema buscará el match para{' '}<strong className="text-[#EDE9DF]">{eventName}</strong>. Te avisamos por WhatsApp.
               </p>
             </div>
-            <button onClick={onClose} className="btn-outline w-full justify-center cursor-pointer">Cerrar</button>
+            <button onClick={onClose} className="btn-outline w-full justify-center cursor-pointer !py-3.5">Cerrar</button>
           </div>
         )}
 
         {state === 'needsLogin' && (
-          <div className="p-8 text-center space-y-5">
-            <p className="font-poster" style={{ fontSize: '22px', color: 'var(--fg)' }}>Necesitas iniciar sesión</p>
-            <p className="text-sm text-fg-muted">Para enviar una solicitud de compra debes tener una cuenta.</p>
-            <div className="flex gap-3 justify-center">
-              <Link href="/login?next=/comprar" className="btn-primary px-6 py-3 text-sm">Iniciar sesión</Link>
-              <button onClick={onClose} className="btn-outline px-6 py-3 text-sm cursor-pointer">Cancelar</button>
+          <div className="p-8 text-center space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center" style={{ background: 'rgba(200,160,74,0.10)', border: '1px solid rgba(200,160,74,0.20)' }}>
+              <svg className="w-5 h-5 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[17px] font-bold text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>Inicia sesión primero</p>
+              <p className="text-[13px] mt-1" style={{ color: 'rgba(237,233,223,0.40)' }}>Necesitas una cuenta para enviar solicitudes.</p>
+            </div>
+            <div className="flex gap-2.5">
+              <Link href="/login?next=/comprar" className="btn-primary flex-1 justify-center !py-3 !text-[13px]">Iniciar sesión</Link>
+              <button onClick={onClose} className="btn-outline flex-1 justify-center !py-3 !text-[13px] cursor-pointer">Cancelar</button>
             </div>
           </div>
         )}
 
         {state === 'error' && (
-          <div className="p-8 text-center space-y-5">
-            <p className="font-poster" style={{ fontSize: '22px', color: '#F87171' }}>Ocurrió un error</p>
-            <p className="text-sm text-fg-muted">{errMsg}</p>
-            <div className="flex gap-3 justify-center">
-              <button onClick={() => setState('form')} className="btn-primary px-6 py-3 text-sm cursor-pointer">Reintentar</button>
-              <button onClick={onClose} className="btn-outline px-6 py-3 text-sm cursor-pointer">Cerrar</button>
+          <div className="p-8 text-center space-y-4">
+            <p className="text-[17px] font-bold" style={{ color: '#F87171', fontFamily: 'var(--font-display)' }}>Ocurrió un error</p>
+            <p className="text-[13px]" style={{ color: 'rgba(237,233,223,0.40)' }}>{errMsg}</p>
+            <div className="flex gap-2.5">
+              <button onClick={() => setState('form')} className="btn-primary flex-1 justify-center cursor-pointer !py-3 !text-[13px]">Reintentar</button>
+              <button onClick={onClose} className="btn-outline flex-1 justify-center cursor-pointer !py-3 !text-[13px]">Cerrar</button>
             </div>
           </div>
         )}
 
         {(state === 'form' || state === 'loading') && (
           <>
-            <div className="h-10 relative overflow-hidden" style={{ background: 'linear-gradient(135deg,#1A1710,#2A2218)' }} />
-            <div className="flex items-start justify-between p-5 border-b" style={{ borderColor: 'var(--border)' }}>
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
               <div>
-                <p className="t-label mb-1.5" style={{ color: 'var(--accent)' }}>{dateStr} · {city}</p>
-                <h2 className="font-poster leading-tight" style={{ fontSize: '20px', letterSpacing: '-0.02em', color: 'var(--fg)' }}>{eventName}</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(200,160,74,0.65)' }}>
+                  {dateStr}{city ? ` · ${city}` : ''}
+                </p>
+                <h2 className="text-[18px] font-bold text-[#EDE9DF] leading-tight" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
+                  {eventName}
+                </h2>
               </div>
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-[#252420] transition-colors ml-4 mt-0.5 flex-shrink-0" aria-label="Cerrar">
-                <svg className="w-4 h-4" style={{ color: 'var(--fg-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="square" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors flex-shrink-0 mt-0.5" aria-label="Cerrar">
+                <svg className="w-4 h-4" style={{ color: 'rgba(237,233,223,0.40)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="p-5 border-b" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="t-label mb-1" style={{ color: 'var(--fg-muted)' }}>Sección · Cantidad</p>
-                  <p className="font-sans font-medium text-[14px]" style={{ color: 'var(--fg)' }}>
-                    {listing.section} · {listing.quantity} boleta{listing.quantity > 1 ? 's' : ''}
+
+            {/* Ticket detail */}
+            <div className="mx-5 my-4 rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'var(--ink-raised)' }}>
+              <div className="flex items-center">
+                <div className="px-4 py-3.5 border-r border-dashed" style={{ borderColor: 'rgba(255,255,255,0.10)', minWidth: 96 }}>
+                  <p className="text-[9px] font-medium uppercase tracking-widest mb-0.5" style={{ color: 'rgba(237,233,223,0.30)' }}>precio</p>
+                  <p className="text-[18px] font-bold tabular-nums leading-none" style={{ color: '#C8A04A', fontFamily: 'var(--font-display)' }}>
+                    {formatCOP(listing.price_per_ticket)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="t-label mb-1" style={{ color: 'var(--fg-muted)' }}>Precio / boleta</p>
-                  <p className="nums leading-none" style={{ fontSize: '20px', fontFamily: 'var(--font-ticket)', color: 'var(--fg)' }}>
-                    {formatCOP(listing.price_per_ticket)}
+                <div className="px-4 py-3 space-y-0.5">
+                  <p className="text-[13px] font-semibold text-[#EDE9DF]">{listing.section}</p>
+                  <p className="text-[11px]" style={{ color: 'rgba(237,233,223,0.38)' }}>
+                    {listing.quantity} boleta{listing.quantity > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="p-5 space-y-4">
-              <p className="font-sans text-[13px]" style={{ color: 'var(--fg-muted)' }}>
-                Al confirmar, enviamos una solicitud al vendedor y el sistema hace el match automáticamente.
+
+            <div className="px-5 pb-5 space-y-4">
+              <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(237,233,223,0.35)' }}>
+                Al confirmar, el sistema notifica al vendedor. Si hay match, recibirás sus datos de contacto por WhatsApp.
               </p>
-              <div className="flex gap-3 pt-1">
-                <button onClick={onClose} className="btn-outline flex-1 justify-center cursor-pointer">Cancelar</button>
+              <div className="flex gap-2.5">
+                <button onClick={onClose} className="btn-outline flex-1 justify-center cursor-pointer !py-3.5 !text-[13px]">Cancelar</button>
                 <button
                   onClick={handleConfirm}
                   disabled={state === 'loading'}
-                  className="btn-primary flex-1 justify-center cursor-pointer disabled:opacity-60"
+                  className="btn-primary flex-1 justify-center cursor-pointer disabled:opacity-60 !py-3.5 !text-[13px]"
                 >
                   {state === 'loading'
                     ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    : 'Confirmar'}
+                    : 'Confirmar interés'}
                 </button>
               </div>
             </div>
