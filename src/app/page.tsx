@@ -15,6 +15,7 @@ interface UiEvent {
   city: string
   cat: string
   visual: string
+  imageUrl: string
   avail: number
   seeking: number
   price: number
@@ -26,16 +27,17 @@ function mapEvent(ev: Record<string, unknown>): UiEvent {
     ? new Date(raw).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
     : ''
   return {
-    id:      String(ev.id),
-    name:    String(ev.name ?? ''),
-    sub:     String(ev.artist ?? ev.venue ?? ''),
-    date:    formatted,
-    city:    String(ev.city ?? ''),
-    cat:     String(ev.category ?? 'OTRO'),
-    visual:  String(ev.visual ?? 'linear-gradient(135deg,#1B1B26,#2A2A3A)'),
-    avail:   0,
-    seeking: 0,
-    price:   0,
+    id:       String(ev.id),
+    name:     String(ev.name ?? ''),
+    sub:      String(ev.artist ?? ev.venue ?? ''),
+    date:     formatted,
+    city:     String(ev.city ?? ''),
+    cat:      String(ev.category ?? 'OTRO'),
+    visual:   String(ev.visual ?? 'linear-gradient(135deg,#1B1B26,#2A2A3A)'),
+    imageUrl: String(ev.image_url ?? ''),
+    avail:    0,
+    seeking:  0,
+    price:    0,
   }
 }
 
@@ -89,6 +91,10 @@ function PosterCard({ ev, width, animClass, style }: {
       style={{ width, aspectRatio: '3/4', position: 'relative', ...style }}
     >
       <div className="absolute inset-0" style={{ background: ev.visual }} />
+      {ev.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={ev.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      )}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.75) 0%,transparent 55%)' }} />
       <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10 pointer-events-none" />
       <div className="absolute top-3 left-3 z-10">
@@ -114,6 +120,10 @@ function EventCard({ ev }: { ev: UiEvent }) {
       {/* Gradient image */}
       <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
         <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.06]" style={{ background: ev.visual }} />
+        {ev.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={ev.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+        )}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 55%)' }} />
 
         {/* Top badges */}
@@ -212,6 +222,7 @@ export default function Landing() {
   const [loadingEv, setLoadingEv] = useState(true)
   const [activeCat, setActiveCat] = useState('all')
   const [query,     setQuery]     = useState('')
+  const [stats,     setStats]     = useState({ listings: 0, requests: 0, matchesThisWeek: 0 })
   const eventsRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -222,6 +233,10 @@ export default function Landing() {
         setLoadingEv(false)
       })
       .catch(() => setLoadingEv(false))
+    fetch('/api/stats')
+      .then(r => r.json())
+      .then(d => setStats(d))
+      .catch(() => {})
   }, [])
 
   const catCounts = useMemo(() => {
@@ -321,17 +336,19 @@ export default function Landing() {
                       Vender
                     </Link>
                   </div>
-                  <p className="text-[11px] text-[#EDE9DF]/25 mt-2 pl-1">
-                    977 activas · Karol G · Colombia vs Portugal · EDC
-                  </p>
+                  {stats.listings > 0 && (
+                    <p className="text-[11px] text-[#EDE9DF]/25 mt-2 pl-1">
+                      {stats.listings} boleta{stats.listings !== 1 ? 's' : ''} activa{stats.listings !== 1 ? 's' : ''}{stats.requests > 0 ? ` · ${stats.requests} compradores buscando` : ''}
+                    </p>
+                  )}
                 </div>
 
                 {/* Stats */}
                 <div className="flex gap-8 mt-9 animate-fade-up animate-delay-3">
                   {[
-                    { n: '977',  label: 'boletas activas' },
-                    { n: '1.2k', label: 'buscando ahora' },
-                    { n: '48',   label: 'matches esta semana' },
+                    { n: stats.listings,       label: 'boletas activas' },
+                    { n: stats.requests,        label: 'buscando ahora' },
+                    { n: stats.matchesThisWeek, label: 'matches esta semana' },
                   ].map(({ n, label }) => (
                     <div key={label}>
                       <p className="text-[24px] font-bold leading-none nums text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>{n}</p>

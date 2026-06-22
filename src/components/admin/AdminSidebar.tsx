@@ -110,7 +110,7 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-2 flex-shrink-0" style={{ borderTop: '1px solid var(--ink-border)' }}>
+      <div className="p-2 flex-shrink-0 space-y-0.5" style={{ borderTop: '1px solid var(--ink-border)' }}>
         <Link href="/"
           className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] hover:bg-white/5 transition-colors"
           style={{ color: 'rgba(237,233,223,0.28)' }}
@@ -120,6 +120,19 @@ export default function AdminSidebar() {
           </svg>
           Ver sitio público
         </Link>
+        <button
+          onClick={async () => {
+            await fetch('/api/admin/auth', { method: 'DELETE' })
+            window.location.href = '/admin/login'
+          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] hover:bg-white/5 transition-colors cursor-pointer"
+          style={{ color: 'rgba(237,233,223,0.28)' }}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   )

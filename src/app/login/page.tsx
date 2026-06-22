@@ -60,8 +60,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold mb-1.5 uppercase tracking-wider"
-                style={{ color: 'rgba(237,233,223,0.40)' }}>Contraseña</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider"
+                  style={{ color: 'rgba(237,233,223,0.40)' }}>Contraseña</label>
+                <Link href="/forgot-password" className="text-[11px] transition-colors"
+                  style={{ color: 'rgba(200,160,74,0.70)' }}
+                  onMouseOver={e => (e.currentTarget.style.color = '#C8A04A')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'rgba(200,160,74,0.70)')}>
+                  ¿Olvidaste la contraseña?
+                </Link>
+              </div>
               <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
                 className="input-field w-full" placeholder="••••••••" autoComplete="current-password" />
             </div>

@@ -31,6 +31,8 @@ export default function RegisterPage() {
     })
     setLoading(false)
     if (error) { setError(error.message); return }
+    // Send welcome email (works whether email confirmation is on or off)
+    fetch('/api/auth/welcome', { method: 'POST' }).catch(() => {})
     setSuccess(true)
   }
 

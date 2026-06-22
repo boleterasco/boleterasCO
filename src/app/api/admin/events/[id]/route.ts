@@ -3,6 +3,20 @@ import { adminClient } from '@/lib/supabase/admin'
 
 type Params = { params: Promise<{ id: string }> }
 
+export async function GET(_req: Request, { params }: Params) {
+  const { id } = await params
+
+  const [{ data: event, error }, { count: listingCount }, { count: requestCount }] = await Promise.all([
+    adminClient.from('events').select('*').eq('id', id).single(),
+    adminClient.from('listings').select('*', { count: 'exact', head: true }).eq('event_id', id),
+    adminClient.from('requests').select('*', { count: 'exact', head: true }).eq('event_id', id),
+  ])
+
+  if (error || !event) return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 })
+
+  return NextResponse.json({ ...event, _listingCount: listingCount ?? 0, _requestCount: requestCount ?? 0 })
+}
+
 export async function PATCH(req: Request, { params }: Params) {
   const { id } = await params
   const body = await req.json()

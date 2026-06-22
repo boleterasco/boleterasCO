@@ -6,18 +6,25 @@ export async function GET() {
     .from('matches')
     .select(`
       id, status, expires_at, notified_at, created_at,
-      listings:listing_id (
-        section, quantity, price_cop,
-        events:event_id ( name ),
-        profiles:user_id ( full_name )
+      listings:listings!listing_id (
+        section, quantity, price_per_ticket,
+        events:events!event_id ( name ),
+        profiles:profiles!seller_id ( full_name )
       ),
-      requests:request_id (
-        max_price_cop,
-        profiles:user_id ( full_name )
+      requests:requests!request_id (
+        max_price,
+        profiles:profiles!buyer_id ( full_name )
       )
     `)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+
+  const formatted = (data ?? []).map((m: any) => ({
+    ...m,
+    listings: m.listings ? { ...m.listings, price_cop: m.listings.price_per_ticket } : null,
+    requests: m.requests ? { ...m.requests, max_price_cop: m.requests.max_price } : null,
+  }))
+
+  return NextResponse.json(formatted)
 }

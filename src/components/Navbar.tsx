@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function Navbar() {
-  const [open,    setOpen]    = useState(false)
-  const [authed,  setAuthed]  = useState(false)
+  const [open,          setOpen]          = useState(false)
+  const [authed,        setAuthed]        = useState(false)
+  const [listingsCount, setListingsCount] = useState<number | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -13,6 +14,7 @@ export default function Navbar() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setAuthed(!!session)
     })
+    fetch('/api/stats').then(r => r.json()).then(d => setListingsCount(d.listings ?? 0)).catch(() => {})
     return () => subscription.unsubscribe()
   }, [])
 
@@ -32,10 +34,12 @@ export default function Navbar() {
         </Link>
 
         {/* Live chip */}
-        <div className="hidden md:flex items-center gap-1.5 bg-[#1B1B26] rounded-full px-3 py-1.5 border border-white/8 flex-1 max-w-[220px]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse flex-shrink-0" />
-          <span className="text-[11px] font-medium text-[#EDE9DF]/50">977 boletas activas</span>
-        </div>
+        {listingsCount !== null && listingsCount > 0 && (
+          <div className="hidden md:flex items-center gap-1.5 bg-[#1B1B26] rounded-full px-3 py-1.5 border border-white/8 flex-1 max-w-[220px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse flex-shrink-0" />
+            <span className="text-[11px] font-medium text-[#EDE9DF]/50">{listingsCount} boleta{listingsCount !== 1 ? 's' : ''} activa{listingsCount !== 1 ? 's' : ''}</span>
+          </div>
+        )}
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1" aria-label="Navegación principal">

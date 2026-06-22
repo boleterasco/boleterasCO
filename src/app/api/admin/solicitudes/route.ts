@@ -5,14 +5,22 @@ export async function GET() {
   const { data, error } = await adminClient
     .from('requests')
     .select(`
-      id, section, quantity, max_price_cop, whatsapp, status, created_at,
+      id, section, quantity, max_price, status, created_at,
       events:event_id ( name, date ),
-      profiles:user_id ( full_name )
+      profiles:buyer_id ( full_name, whatsapp )
     `)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+
+  // Flatten for the admin page interface (keeps max_price_cop alias and whatsapp at top level)
+  const formatted = (data ?? []).map((r: any) => ({
+    ...r,
+    max_price_cop: r.max_price,
+    whatsapp: r.profiles?.whatsapp ?? null,
+  }))
+
+  return NextResponse.json(formatted)
 }
 
 export async function PATCH(req: Request) {

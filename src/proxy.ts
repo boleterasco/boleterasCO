@@ -27,9 +27,23 @@ export async function proxy(request: NextRequest) {
   // Protect /dashboard — redirect to login if not authenticated
   if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
+    url.pathname = '/login'
     url.searchParams.set('next', request.nextUrl.pathname)
     return NextResponse.redirect(url)
+  }
+
+  // Protect /admin/* — redirect to /admin/login if no valid admin session
+  if (
+    request.nextUrl.pathname.startsWith('/admin') &&
+    !request.nextUrl.pathname.startsWith('/admin/login')
+  ) {
+    const adminSession = request.cookies.get('admin_session')?.value
+    const adminPassword = process.env.ADMIN_PASSWORD
+    if (!adminPassword || !adminSession || adminSession !== adminPassword) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/login'
+      return NextResponse.redirect(url)
+    }
   }
 
   return response

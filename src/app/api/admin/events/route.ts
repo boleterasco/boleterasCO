@@ -13,7 +13,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { name, artist, date, venue, city, category, visual, is_active, is_featured, sections } = body
+  const { name, artist, date, venue, city, category, visual, image_url, is_active, is_featured, sections } = body
 
   if (!name || !date || !city || !category) {
     return NextResponse.json({ error: 'Faltan campos requeridos: name, date, city, category' }, { status: 400 })
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
       city,
       category,
       visual:      visual ?? null,
+      image_url:   image_url ?? null,
       is_active:   is_active  ?? true,
       is_featured: is_featured ?? false,
       sections:    sections ?? [],

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { createClient } from '@/lib/supabase/server'
 import { runMatching } from '@/lib/matching'
+import { sendRequestConfirmationEmail } from '@/lib/notifications'
 
 export async function GET() {
   const supabase = await createClient()
@@ -45,7 +47,19 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  runMatching('request', request.id).catch(console.error)
+  const userEmail = user.email
+  waitUntil((async () => {
+    const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+    const { data: event }   = await supabase.from('events').select('name, date, city').eq('id', event_id).single()
+    if (userEmail && event) {
+      await sendRequestConfirmationEmail(
+        { email: userEmail, name: profile?.full_name ?? 'Usuario' },
+        { section: section ?? null, quantity: Number(quantity), max_price: Number(max_price) },
+        { name: event.name, date: new Date(event.date).toLocaleDateString('es-CO', { dateStyle: 'long' }), city: event.city },
+      ).catch(console.error)
+    }
+    await runMatching('request', request.id).catch(console.error)
+  })())
 
   return NextResponse.json(request, { status: 201 })
 }

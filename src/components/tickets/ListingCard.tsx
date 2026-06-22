@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { formatCOP } from '@/lib/utils'
 import type { Listing } from '@/lib/types'
 
@@ -9,6 +10,7 @@ interface ListingCardProps {
 }
 
 export default function ListingCard({ listing, onSelect }: ListingCardProps) {
+  const router = useRouter()
   return (
     <div className="card-ticket p-4 flex items-center gap-4 animate-fade-up">
       {/* Price block */}
@@ -42,7 +44,7 @@ export default function ListingCard({ listing, onSelect }: ListingCardProps) {
 
       {/* CTA */}
       <button
-        onClick={() => onSelect?.(listing.id)}
+        onClick={() => onSelect ? onSelect(listing.id) : router.push(`/comprar?event=${listing.eventId}`)}
         className="btn-primary flex-shrink-0 text-sm px-4 py-3 cursor-pointer"
         aria-label={`Comprar boleta en ${listing.section} por ${formatCOP(listing.pricePerTicket)}`}
       >

@@ -1,39 +1,46 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { formatCOP, calcFees } from '@/lib/utils'
 
-const EVENTS = [
-  { id: '1', name: 'Karol G - Viajando Por el Mundo', date: '2026-12-04', city: 'Bogotá' },
-  { id: '2', name: 'Colombia vs Portugal - Grupo K', date: '2026-06-27', city: 'Miami' },
-  { id: '3', name: 'Gorillaz - The Mountain Tour', date: '2026-11-18', city: 'Bogotá' },
-  { id: '4', name: 'Iron Maiden - Run For Your Lives', date: '2026-10-11', city: 'Bogotá' },
-  { id: '5', name: 'EDC Colombia 2026', date: '2026-10-10', city: 'Bogotá' },
-]
+type DbEvent = { id: string; name: string; date: string; city: string; sections?: any[] }
 
-const SECTIONS = ['Palco VIP', 'Platea Occidente', 'Platea Oriente', 'General Norte', 'General Sur', 'General Piso', 'Otro']
+const FALLBACK_SECTIONS = ['Palco VIP', 'Platea Occidente', 'Platea Oriente', 'General Norte', 'General Sur', 'General Piso', 'Otro']
 
 type Step = 1 | 2 | 3
 
-export default function VenderPage() {
+function VenderContent() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<Step>(1)
+  const [events,   setEvents]   = useState<DbEvent[]>([])
+  const [loadingEv, setLoadingEv] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [apiError,   setApiError]   = useState('')
+
   const [form, setForm] = useState({
-    eventId: '',
-    section: '',
+    eventId:       searchParams.get('event') ?? '',
+    section:       '',
     customSection: '',
-    quantity: 1,
-    price: '',
-    notes: '',
-    phone: '',
-    email: '',
-    contactMethod: 'BOTH' as 'WHATSAPP' | 'EMAIL' | 'BOTH',
-    agreed: false,
+    quantity:      1,
+    price:         '',
+    notes:         '',
+    agreed:        false,
   })
+
+  useEffect(() => {
+    fetch('/api/events')
+      .then(r => r.json())
+      .then(data => { setEvents(Array.isArray(data) ? data : []); setLoadingEv(false) })
+      .catch(() => setLoadingEv(false))
+  }, [])
 
   const price    = parseInt(form.price.replace(/\D/g, '')) || 0
   const fees     = calcFees(price, form.quantity)
-  const selected = EVENTS.find(e => e.id === form.eventId)
+  const selected = events.find(e => e.id === form.eventId)
+  const sections = selected?.sections?.length ? selected.sections.map((s: any) => s.name ?? s) : FALLBACK_SECTIONS
 
   function set(key: keyof typeof form, value: unknown) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -46,6 +53,38 @@ export default function VenderPage() {
 
   const step1Valid = form.eventId && (form.section || form.customSection) && form.quantity >= 1 && price >= 50000
   const step2Valid = form.agreed
+
+  async function handlePublish() {
+    setApiError('')
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id:         form.eventId,
+          section:          form.section === 'Otro' ? form.customSection : form.section,
+          quantity:         form.quantity,
+          price_per_ticket: price,
+          notes:            form.notes || null,
+        }),
+      })
+      if (res.status === 401) {
+        router.push(`/login?next=/vender`)
+        return
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setApiError(body.error ?? 'Error al publicar. Intenta de nuevo.')
+        return
+      }
+      setStep(3)
+    } catch {
+      setApiError('Error de conexión. Intenta de nuevo.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <>
@@ -68,12 +107,10 @@ export default function VenderPage() {
           </div>
 
           {/* Step indicator */}
-          <div className="flex items-center gap-0 mb-10" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={3} aria-label={`Paso ${step} de 3`}>
+          <div className="flex items-center gap-0 mb-10" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={3}>
             {([1, 2, 3] as Step[]).map((s, i) => (
               <div key={s} className="flex items-center flex-1 last:flex-none">
-                <div className={`w-7 h-7 flex items-center justify-center border transition-colors duration-150
-                  ${step >= s ? 'bg-accent border-accent' : 'bg-transparent border-border'}`}
-                >
+                <div className={`w-7 h-7 flex items-center justify-center border transition-colors duration-150 ${step >= s ? 'bg-accent border-accent' : 'bg-transparent border-border'}`}>
                   <span className={`font-display font-700 text-xs ${step >= s ? 'text-accent-fg' : 'text-fg-muted'}`}>{s}</span>
                 </div>
                 {i < 2 && <div className={`flex-1 h-px transition-colors duration-150 ${step > s ? 'bg-accent' : 'bg-border'}`} />}
@@ -86,7 +123,6 @@ export default function VenderPage() {
             <div className="space-y-6 animate-fade-up">
               <h2 className="font-display font-700 text-xl text-fg">Datos de la boleta</h2>
 
-              {/* Event */}
               <div className="space-y-2">
                 <label htmlFor="event" className="text-label text-fg-muted block">Evento *</label>
                 <select
@@ -94,11 +130,11 @@ export default function VenderPage() {
                   className="input-field"
                   value={form.eventId}
                   onChange={e => set('eventId', e.target.value)}
+                  disabled={loadingEv}
                   required
-                  aria-required="true"
                 >
-                  <option value="">Seleccionar evento…</option>
-                  {EVENTS.map(ev => (
+                  <option value="">{loadingEv ? 'Cargando eventos...' : 'Seleccionar evento…'}</option>
+                  {events.map(ev => (
                     <option key={ev.id} value={ev.id}>
                       {ev.name} — {ev.city}
                     </option>
@@ -106,7 +142,6 @@ export default function VenderPage() {
                 </select>
               </div>
 
-              {/* Section */}
               <div className="space-y-2">
                 <label htmlFor="section" className="text-label text-fg-muted block">Sección *</label>
                 <select
@@ -115,10 +150,9 @@ export default function VenderPage() {
                   value={form.section}
                   onChange={e => set('section', e.target.value)}
                   required
-                  aria-required="true"
                 >
                   <option value="">Seleccionar sección…</option>
-                  {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {sections.map((s: string) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 {form.section === 'Otro' && (
                   <input
@@ -127,12 +161,10 @@ export default function VenderPage() {
                     className="input-field mt-2"
                     value={form.customSection}
                     onChange={e => set('customSection', e.target.value)}
-                    aria-label="Descripción de sección personalizada"
                   />
                 )}
               </div>
 
-              {/* Quantity + Price */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label htmlFor="qty" className="text-label text-fg-muted block">Cantidad *</label>
@@ -144,12 +176,9 @@ export default function VenderPage() {
                     value={form.quantity}
                     onChange={e => set('quantity', Math.min(10, Math.max(1, Number(e.target.value))))}
                     required
-                    aria-required="true"
-                    aria-describedby="qty-hint"
                   />
-                  <p id="qty-hint" className="text-xs text-fg-subtle">Máx. 10</p>
+                  <p className="text-xs text-fg-subtle">Máx. 10</p>
                 </div>
-
                 <div className="space-y-2">
                   <label htmlFor="price" className="text-label text-fg-muted block">Precio por boleta (COP) *</label>
                   <div className="relative">
@@ -163,17 +192,14 @@ export default function VenderPage() {
                       value={form.price}
                       onChange={e => set('price', formatInput(e.target.value))}
                       required
-                      aria-required="true"
-                      aria-describedby="price-hint"
                     />
                   </div>
-                  <p id="price-hint" className="text-xs text-fg-subtle">Mín. $50.000</p>
+                  <p className="text-xs text-fg-subtle">Mín. $50.000</p>
                 </div>
               </div>
 
-              {/* Fee preview */}
               {price >= 50000 && (
-                <div className="bg-bg-surface border border-border p-4 space-y-2" role="region" aria-label="Calculadora de comisiones">
+                <div className="bg-bg-surface border border-border p-4 space-y-2">
                   <p className="text-label text-fg-muted mb-3">Resumen de la venta</p>
                   <div className="flex justify-between text-sm">
                     <span className="text-fg-muted">{form.quantity}x boleta a {formatCOP(price)}</span>
@@ -191,7 +217,6 @@ export default function VenderPage() {
                 </div>
               )}
 
-              {/* Notes */}
               <div className="space-y-2">
                 <label htmlFor="notes" className="text-label text-fg-muted block">Notas para el comprador <span className="text-fg-subtle">(opcional)</span></label>
                 <textarea
@@ -202,16 +227,14 @@ export default function VenderPage() {
                   placeholder="Ej: Boletas en TuBoleta, transferencia el mismo día de la venta…"
                   value={form.notes}
                   onChange={e => set('notes', e.target.value)}
-                  aria-describedby="notes-count"
                 />
-                <p id="notes-count" className="text-xs text-fg-subtle text-right">{form.notes.length}/200</p>
+                <p className="text-xs text-fg-subtle text-right">{form.notes.length}/200</p>
               </div>
 
               <button
                 onClick={() => setStep(2)}
                 disabled={!step1Valid}
                 className="btn-primary w-full justify-center py-4 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                aria-label="Continuar al paso 2"
               >
                 Continuar
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -226,7 +249,6 @@ export default function VenderPage() {
             <div className="space-y-6 animate-fade-up">
               <h2 className="font-display font-700 text-xl text-fg">Confirmar términos</h2>
 
-              {/* Summary */}
               <div className="card-ticket p-5 space-y-3">
                 <p className="text-label text-fg-muted">Resumen</p>
                 <div className="space-y-1">
@@ -236,11 +258,9 @@ export default function VenderPage() {
                 </div>
               </div>
 
-              {/* Terms */}
               <div className="space-y-4">
                 {[
-                  'Transferiré la boleta a través del sistema oficial del organizador (Ticket Transfer u otro método autorizado).',
-                  'Entiendo que el pago queda retenido hasta que el comprador confirme que recibió la boleta. (disponible en Etapa 3)',
+                  'Transferiré la boleta a través del sistema oficial del organizador.',
                   'Acepto la comisión del 5% sobre el precio de venta.',
                   'Si cancelo un match activo, mi publicación quedará suspendida 48 horas.',
                 ].map((term, i) => (
@@ -253,35 +273,34 @@ export default function VenderPage() {
                 ))}
               </div>
 
-              {/* Agree checkbox */}
-              <label className="flex items-start gap-3 cursor-pointer group">
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   className="mt-0.5 w-4 h-4 accent-[#FF5C1A] flex-shrink-0 cursor-pointer"
                   checked={form.agreed}
                   onChange={e => set('agreed', e.target.checked)}
-                  aria-label="Acepto los términos y condiciones"
                 />
-                <span className="text-sm text-fg group-hover:text-fg transition-colors duration-150">
-                  Entiendo y acepto todos los términos anteriores
-                </span>
+                <span className="text-sm text-fg">Entiendo y acepto todos los términos anteriores</span>
               </label>
 
+              {apiError && (
+                <div className="p-3 text-sm text-[#F87171]" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.20)' }}>
+                  {apiError}
+                </div>
+              )}
+
               <div className="flex gap-3">
-                <button
-                  onClick={() => setStep(1)}
-                  className="btn-outline flex-1 justify-center py-4 cursor-pointer"
-                  aria-label="Volver al paso anterior"
-                >
+                <button onClick={() => setStep(1)} className="btn-outline flex-1 justify-center py-4 cursor-pointer">
                   Atrás
                 </button>
                 <button
-                  onClick={() => setStep(3)}
-                  disabled={!step2Valid}
-                  className="btn-primary flex-2 flex-1 justify-center py-4 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  aria-label="Publicar boleta"
+                  onClick={handlePublish}
+                  disabled={!step2Valid || submitting}
+                  className="btn-primary flex-1 justify-center py-4 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  Publicar boleta
+                  {submitting ? (
+                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : 'Publicar boleta'}
                 </button>
               </div>
             </div>
@@ -298,7 +317,7 @@ export default function VenderPage() {
               <div>
                 <h2 className="font-display font-800 text-2xl text-fg">¡Publicada!</h2>
                 <p className="text-sm text-fg-muted mt-2 max-w-sm mx-auto leading-relaxed">
-                  Tu boleta está activa. El sistema ya está buscando compradores. Te avisamos por WhatsApp y email cuando haya un match.
+                  Tu boleta está activa. El sistema ya está buscando compradores. Te avisamos cuando haya un match.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -314,5 +333,13 @@ export default function VenderPage() {
         </div>
       </main>
     </>
+  )
+}
+
+export default function VenderPage() {
+  return (
+    <Suspense fallback={<div className="pt-14 min-h-dvh flex items-center justify-center"><span className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" /></div>}>
+      <VenderContent />
+    </Suspense>
   )
 }

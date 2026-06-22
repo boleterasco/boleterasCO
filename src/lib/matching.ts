@@ -20,7 +20,7 @@ async function matchListingAgainstRequests(listingId: string) {
     .select(`
       *,
       event:events(id, name, date, city),
-      seller:profiles(id, full_name, email, phone)
+      seller:profiles(id, full_name, phone, whatsapp)
     `)
     .eq('id', listingId)
     .eq('status', 'ACTIVE')
@@ -33,11 +33,11 @@ async function matchListingAgainstRequests(listingId: string) {
     .from('requests')
     .select(`
       *,
-      buyer:profiles(id, full_name, email, phone)
+      buyer:profiles(id, full_name, phone, whatsapp)
     `)
     .eq('event_id', listing.event_id)
     .eq('status', 'OPEN')
-    .lte('max_price', listing.price_per_ticket)
+    .gte('max_price', listing.price_per_ticket)
     .gte('quantity', listing.quantity)
 
   if (!requests?.length) return
@@ -89,7 +89,7 @@ async function matchRequestAgainstListings(requestId: string) {
     .select(`
       *,
       event:events(id, name, date, city),
-      buyer:profiles(id, full_name, email, phone)
+      buyer:profiles(id, full_name, phone, whatsapp)
     `)
     .eq('id', requestId)
     .eq('status', 'OPEN')
@@ -101,7 +101,7 @@ async function matchRequestAgainstListings(requestId: string) {
     .from('listings')
     .select(`
       *,
-      seller:profiles(id, full_name, email, phone)
+      seller:profiles(id, full_name, phone, whatsapp)
     `)
     .eq('event_id', request.event_id)
     .eq('status', 'ACTIVE')
@@ -155,8 +155,18 @@ async function notifyBothParties(
   request: Record<string, unknown>,
 ) {
   const event  = listing.event  as { name: string; date: string; city: string }
-  const seller = listing.seller as { full_name: string; email: string; phone?: string }
-  const buyer  = request.buyer  as { full_name: string; email: string; phone?: string }
+  const seller = listing.seller as { id: string; full_name: string; phone?: string; whatsapp?: string }
+  const buyer  = request.buyer  as { id: string; full_name: string; phone?: string; whatsapp?: string }
+
+  // Get emails from auth.users via admin API (profiles.email may be unpopulated)
+  const [sellerAuth, buyerAuth] = await Promise.all([
+    adminClient.auth.admin.getUserById(seller.id),
+    adminClient.auth.admin.getUserById(buyer.id),
+  ])
+  const sellerEmail = sellerAuth.data.user?.email ?? ''
+  const buyerEmail  = buyerAuth.data.user?.email  ?? ''
+
+  if (!sellerEmail || !buyerEmail) return
 
   const info = {
     eventName: event.name,
@@ -168,13 +178,13 @@ async function notifyBothParties(
     matchId,
   }
 
-  const sellerParty = { email: seller.email, name: seller.full_name, whatsapp: seller.phone ?? null }
-  const buyerParty  = { email: buyer.email,  name: buyer.full_name,  whatsapp: buyer.phone  ?? null }
+  const sellerParty = { email: sellerEmail, name: seller.full_name, whatsapp: seller.whatsapp ?? seller.phone ?? null }
+  const buyerParty  = { email: buyerEmail,  name: buyer.full_name,  whatsapp: buyer.whatsapp  ?? buyer.phone  ?? null }
 
   await Promise.all([
     sendMatchEmail('seller', sellerParty, buyerParty, info),
     sendMatchEmail('buyer',  buyerParty, sellerParty, info),
-    seller.phone ? sendMatchWhatsApp('seller', seller.phone, buyerParty,  info) : Promise.resolve(),
-    buyer.phone  ? sendMatchWhatsApp('buyer',  buyer.phone,  sellerParty, info) : Promise.resolve(),
+    sellerParty.whatsapp ? sendMatchWhatsApp('seller', sellerParty.whatsapp, buyerParty,  info) : Promise.resolve(),
+    buyerParty.whatsapp  ? sendMatchWhatsApp('buyer',  buyerParty.whatsapp,  sellerParty, info) : Promise.resolve(),
   ])
 }

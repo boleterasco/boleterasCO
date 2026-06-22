@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useId } from 'react'
+import { useState, useId, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { formatCOP } from '@/lib/utils'
@@ -16,28 +16,7 @@ interface Section {
   maxPrice: number
 }
 
-/* Mock — replace with: adminClient.from('events').select('*, sections').eq('id', id).single() */
-const MOCK_EVENTS: Record<string, any> = {
-  '1': { name: 'Colombia vs Portugal', artist: 'FIFA', date: '2026-06-27', venue: 'Hard Rock Stadium', city: 'Miami', category: 'MUNDIAL_2026', visual: 'linear-gradient(150deg,#0A2515 0%,#155C30 50%,#9A7800 100%)', isActive: true, isFeatured: true, listings: 3, requests: 89,
-    sections: [
-      { id: 'a1', name: 'Categoría 1 — VIP',      description: 'Acceso premium con bebidas incluidas', minPrice: 2000000, maxPrice: 4000000 },
-      { id: 'a2', name: 'Categoría 2',             description: '',                                    minPrice: 1200000, maxPrice: 2000000 },
-      { id: 'a3', name: 'Categoría 3 — General',  description: 'Tribuna lateral inferior',             minPrice:  850000, maxPrice: 1200000 },
-      { id: 'a4', name: 'Categoría 4 — Económica',description: 'Tribuna alta',                        minPrice:  500000, maxPrice:  850000 },
-      { id: 'a5', name: 'Palco corporativo',       description: 'Solo empresas',                       minPrice: 5000000, maxPrice: 9000000 },
-    ]
-  },
-  '2': { name: 'Karol G', artist: 'Karol G', date: '2026-12-04', venue: 'Estadio El Campín', city: 'Bogotá', category: 'CONCIERTO', visual: 'linear-gradient(150deg,#1A0635 0%,#5B0FA0 55%,#C2185B 100%)', isActive: true, isFeatured: true, listings: 12, requests: 34,
-    sections: [
-      { id: 'b1', name: 'Palco VIP',        description: 'Acceso exclusivo con meet & greet', minPrice: 1200000, maxPrice: 2500000 },
-      { id: 'b2', name: 'Platea Oriente',   description: 'Vista directa al escenario',        minPrice:  550000, maxPrice:  900000 },
-      { id: 'b3', name: 'Platea Occidente', description: '',                                  minPrice:  500000, maxPrice:  850000 },
-      { id: 'b4', name: 'General Norte',    description: 'Zona de pie, pista',                minPrice:  320000, maxPrice:  500000 },
-      { id: 'b5', name: 'General Sur',      description: '',                                  minPrice:  280000, maxPrice:  450000 },
-      { id: 'b6', name: 'Pista',            description: 'Frente al escenario',               minPrice:  380000, maxPrice:  600000 },
-    ]
-  },
-}
+const DEFAULT_VISUAL = 'linear-gradient(150deg,#0A2515 0%,#155C30 50%,#9A7800 100%)'
 
 const GRADIENT_PRESETS = [
   'linear-gradient(150deg,#0A2515 0%,#155C30 50%,#9A7800 100%)',
@@ -66,22 +45,54 @@ export default function EditEventoPage() {
   const { id }  = useParams<{ id: string }>()
   const router  = useRouter()
   const uid     = useId()
-  const mock    = MOCK_EVENTS[id] ?? MOCK_EVENTS['2']
 
-  const [name,       setName]       = useState<string>(mock.name)
-  const [artist,     setArtist]     = useState<string>(mock.artist)
-  const [date,       setDate]       = useState<string>(mock.date)
-  const [venue,      setVenue]      = useState<string>(mock.venue)
-  const [city,       setCity]       = useState<string>(mock.city)
-  const [category,   setCategory]   = useState<Category>(mock.category)
-  const [imageUrl,   setImageUrl]   = useState<string>(mock.imageUrl ?? '')
-  const [visual,     setVisual]     = useState<string>(mock.visual)
-  const [isActive,   setIsActive]   = useState<boolean>(mock.isActive)
-  const [isFeatured, setIsFeatured] = useState<boolean>(mock.isFeatured)
-  const [sections,   setSections]   = useState<Section[]>(mock.sections ?? [])
+  const [loadingEvent, setLoadingEvent] = useState(true)
+  const [listingCount, setListingCount] = useState(0)
+  const [requestCount, setRequestCount] = useState(0)
+
+  const [name,       setName]       = useState<string>('')
+  const [artist,     setArtist]     = useState<string>('')
+  const [date,       setDate]       = useState<string>('')
+  const [venue,      setVenue]      = useState<string>('')
+  const [city,       setCity]       = useState<string>('')
+  const [category,   setCategory]   = useState<Category>('CONCIERTO')
+  const [imageUrl,   setImageUrl]   = useState<string>('')
+  const [visual,     setVisual]     = useState<string>(DEFAULT_VISUAL)
+  const [isActive,   setIsActive]   = useState<boolean>(true)
+  const [isFeatured, setIsFeatured] = useState<boolean>(false)
+  const [sections,   setSections]   = useState<Section[]>([])
   const [saving,     setSaving]     = useState(false)
   const [error,      setError]      = useState('')
   const [tab,        setTab]        = useState<'info' | 'sections'>('info')
+
+  useEffect(() => {
+    fetch(`/api/admin/events/${id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data || data.error) { setError('Evento no encontrado'); setLoadingEvent(false); return }
+        setName(data.name ?? '')
+        setArtist(data.artist ?? '')
+        setDate(data.date ?? '')
+        setVenue(data.venue ?? '')
+        setCity(data.city ?? '')
+        setCategory(data.category ?? 'CONCIERTO')
+        setImageUrl(data.image_url ?? '')
+        setVisual(data.visual ?? DEFAULT_VISUAL)
+        setIsActive(data.is_active ?? true)
+        setIsFeatured(data.is_featured ?? false)
+        setSections(Array.isArray(data.sections) ? data.sections.map((s: any) => ({
+          id: s.id ?? genId(),
+          name: s.name ?? '',
+          description: s.description ?? '',
+          minPrice: s.minPrice ?? s.min_price ?? 0,
+          maxPrice: s.maxPrice ?? s.max_price ?? 0,
+        })) : [])
+        setListingCount(data._listingCount ?? 0)
+        setRequestCount(data._requestCount ?? 0)
+        setLoadingEvent(false)
+      })
+      .catch(() => { setError('Error al cargar el evento.'); setLoadingEvent(false) })
+  }, [id])
 
   function addSection() {
     setSections(prev => [...prev, { id: genId(), name: '', description: '', minPrice: 0, maxPrice: 0 }])
@@ -118,6 +129,14 @@ export default function EditEventoPage() {
     }
   }
 
+  if (loadingEvent) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[200px]">
+        <span className="w-6 h-6 border-2 border-[#C8A04A] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 max-w-[900px]">
 
@@ -136,7 +155,7 @@ export default function EditEventoPage() {
             </h1>
             <div className="flex items-center gap-3 mt-0.5">
               <span className="text-[12px]" style={{ color: 'rgba(237,233,223,0.35)' }}>
-                {mock.listings} listings · {mock.requests} solicitudes
+                {listingCount} listings · {requestCount} solicitudes
               </span>
             </div>
           </div>
@@ -146,11 +165,11 @@ export default function EditEventoPage() {
         <div className="flex gap-2 flex-shrink-0">
           <span className="text-[12px] px-3 py-1.5 rounded-lg font-semibold"
             style={{ background: 'rgba(74,222,128,0.10)', color: '#4ADE80' }}>
-            {mock.listings} listings
+            {listingCount} listings
           </span>
           <span className="text-[12px] px-3 py-1.5 rounded-lg font-semibold"
             style={{ background: 'rgba(129,140,248,0.10)', color: '#818CF8' }}>
-            {mock.requests} solicitudes
+            {requestCount} solicitudes
           </span>
         </div>
       </div>

@@ -1,44 +1,74 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
-import ListingCard from '@/components/tickets/ListingCard'
+import ListingsSection from '@/components/tickets/ListingsSection'
 import { formatCOP, formatDate } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
+import type { Listing } from '@/lib/types'
 
 type Props = { params: Promise<{ id: string }> }
 
-/* mock — replace with prisma */
-const EVENT = {
-  id: '1',
-  name: 'Karol G - Viajando Por el Mundo',
-  artist: 'Karol G',
-  date: '2026-12-04',
-  venue: 'Estadio El Campín',
-  city: 'Bogotá',
-  category: 'CONCIERTO',
-}
-
-const LISTINGS = [
-  { id: 'l1', sellerId: 'u1', seller: { id: 'u1', email: 'a@a.co', fullName: 'Carlos M.', phone: '+573001234567' }, eventId: '1', event: EVENT as any, section: 'Palco VIP', quantity: 2, pricePerTicket: 580000, notes: 'Boletas en app TuBoleta, transferencia el mismo día', status: 'ACTIVE' as const, createdAt: new Date() },
-  { id: 'l2', sellerId: 'u2', seller: { id: 'u2', email: 'b@b.co', fullName: 'Ana R.', phone: '+573009876543' }, eventId: '1', event: EVENT as any, section: 'Platea Oriente', quantity: 1, pricePerTicket: 380000, notes: null, status: 'ACTIVE' as const, createdAt: new Date() },
-  { id: 'l3', sellerId: 'u3', seller: { id: 'u3', email: 'c@c.co', fullName: 'Luis P.', phone: null }, eventId: '1', event: EVENT as any, section: 'General Norte', quantity: 4, pricePerTicket: 220000, notes: 'Lote de 4, no vendo separadas', status: 'ACTIVE' as const, createdAt: new Date() },
-]
-
-const REQUESTS = [
-  { id: 'r1', section: 'Palco VIP', quantity: 2, maxPrice: 600000 },
-  { id: 'r2', section: null, quantity: 1, maxPrice: 450000 },
-  { id: 'r3', section: 'General', quantity: 3, maxPrice: 250000 },
-]
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
+  const supabase = await createClient()
+  const { data: event } = await supabase.from('events').select('name,city').eq('id', id).single()
+  if (!event) return { title: 'Evento no encontrado' }
   return {
-    title: EVENT.name,
-    description: `Compra y vende boletas para ${EVENT.name} en ${EVENT.city}. ${LISTINGS.length} boletas disponibles desde ${formatCOP(LISTINGS[LISTINGS.length - 1]?.pricePerTicket ?? 0)}.`,
+    title: event.name,
+    description: `Compra y vende boletas para ${event.name} en ${event.city}.`,
+  }
+}
+
+function mapListing(l: any, eventData: any): Listing {
+  return {
+    id: l.id,
+    sellerId: l.seller_id,
+    eventId: l.event_id,
+    section: l.section,
+    quantity: l.quantity,
+    pricePerTicket: l.price_per_ticket,
+    notes: l.notes ?? null,
+    status: l.status,
+    createdAt: l.created_at,
+    event: eventData,
+    seller: {
+      id: l.seller_id,
+      fullName: l.seller?.full_name ?? 'Vendedor verificado',
+      email: '',
+      phone: l.seller?.phone ?? null,
+    },
   }
 }
 
 export default async function EventDetailPage({ params }: Props) {
   const { id } = await params
+  const supabase = await createClient()
+
+  const [{ data: eventRow, error: eErr }, { data: listingsRaw }, { count: requestCount }] = await Promise.all([
+    supabase.from('events').select('*').eq('id', id).single(),
+    supabase.from('listings').select('*, seller:profiles(full_name, phone)').eq('event_id', id).eq('status', 'ACTIVE').order('price_per_ticket', { ascending: true }),
+    supabase.from('requests').select('*', { count: 'exact', head: true }).eq('event_id', id).eq('status', 'OPEN'),
+  ])
+
+  if (eErr || !eventRow) notFound()
+
+  const event = {
+    id: eventRow.id,
+    name: eventRow.name,
+    artist: eventRow.artist ?? '',
+    date: eventRow.date,
+    venue: eventRow.venue ?? '',
+    city: eventRow.city,
+    category: eventRow.category,
+    isActive: eventRow.is_active,
+    isFeatured: eventRow.is_featured,
+  }
+
+  const listings: Listing[] = (listingsRaw ?? []).map(l => mapListing(l, event))
+  const reqCount = requestCount ?? 0
+
+  const minPrice = listings.length > 0 ? Math.min(...listings.map(l => l.pricePerTicket)) : 0
 
   return (
     <>
@@ -61,20 +91,23 @@ export default async function EventDetailPage({ params }: Props) {
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="space-y-2">
-                <span className="badge-muted">{EVENT.category}</span>
+                <span className="badge-muted">{event.category}</span>
                 <h1 className="font-display font-800 text-fg leading-tight" style={{ fontSize: 'clamp(28px, 5vw, 56px)', letterSpacing: '-0.03em' }}>
-                  {EVENT.name}
+                  {event.name}
                 </h1>
                 <div className="flex flex-wrap items-center gap-4 mt-2">
-                  <span className="text-label text-accent">{formatDate(EVENT.date).toUpperCase()}</span>
+                  <span className="text-label text-accent">{formatDate(event.date).toUpperCase()}</span>
+                  {event.venue && (
+                    <>
+                      <span className="text-label text-fg-muted">·</span>
+                      <span className="text-label text-fg-muted">{event.venue.toUpperCase()}</span>
+                    </>
+                  )}
                   <span className="text-label text-fg-muted">·</span>
-                  <span className="text-label text-fg-muted">{EVENT.venue.toUpperCase()}</span>
-                  <span className="text-label text-fg-muted">·</span>
-                  <span className="text-label text-fg-muted">{EVENT.city.toUpperCase()}</span>
+                  <span className="text-label text-fg-muted">{event.city.toUpperCase()}</span>
                 </div>
               </div>
 
-              {/* Floating action */}
               <div className="flex gap-3 flex-shrink-0">
                 <Link href={`/comprar?event=${id}`} className="btn-primary text-sm px-6 py-3">
                   Busco boleta aquí
@@ -87,87 +120,30 @@ export default async function EventDetailPage({ params }: Props) {
 
             {/* Stats */}
             <div className="mt-8 flex gap-6 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="badge-orange">{LISTINGS.length} disponibles</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="badge-yellow">{REQUESTS.length} buscando</span>
-              </div>
-              <div>
-                <span className="text-label text-fg-muted">
-                  desde {formatCOP(Math.min(...LISTINGS.map(l => l.pricePerTicket)))}
-                </span>
-              </div>
+              {listings.length > 0 && (
+                <span className="badge-orange">{listings.length} disponible{listings.length !== 1 ? 's' : ''}</span>
+              )}
+              {reqCount > 0 && (
+                <span className="badge-yellow">{reqCount} buscando</span>
+              )}
+              {minPrice > 0 && (
+                <span className="text-label text-fg-muted">desde {formatCOP(minPrice)}</span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Tabs content */}
+        {/* Content */}
         <div className="max-w-5xl mx-auto px-5 py-10">
           <div className="grid md:grid-cols-[1fr_280px] gap-10">
 
-            {/* Main: listings */}
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-display font-700 text-xl text-fg">
-                  Boletas disponibles
-                  <span className="ml-2 text-label text-fg-muted">({LISTINGS.length})</span>
-                </h2>
-              </div>
-
-              {LISTINGS.length === 0 ? (
-                <div className="card-ticket p-10 text-center">
-                  <p className="font-display font-700 text-lg text-fg-muted">Sin boletas disponibles</p>
-                  <p className="text-sm text-fg-subtle mt-2">Deja tu solicitud y te avisamos cuando alguien publique.</p>
-                  <Link href={`/comprar?event=${id}`} className="btn-primary inline-flex mt-6 text-sm px-6 py-3">
-                    Dejar solicitud
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-px bg-border">
-                  {LISTINGS.map(listing => (
-                    <div key={listing.id} className="bg-bg">
-                      <ListingCard listing={listing} />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Open requests */}
-              <div className="mt-10">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-display font-700 text-xl text-fg">
-                    Buscando boleta
-                    <span className="ml-2 text-label text-fg-muted">({REQUESTS.length})</span>
-                  </h2>
-                </div>
-
-                <div className="space-y-px bg-border">
-                  {REQUESTS.map(req => (
-                    <div key={req.id} className="bg-bg card-ticket p-4 flex items-center gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-display font-700 text-sm text-fg">
-                            {req.section ?? 'Cualquier sección'}
-                          </span>
-                          <span className="badge-muted">{req.quantity} {req.quantity === 1 ? 'boleta' : 'boletas'}</span>
-                        </div>
-                        <p className="text-label text-fg-muted mt-1">
-                          paga hasta {formatCOP(req.maxPrice)}
-                        </p>
-                      </div>
-                      <Link
-                        href={`/vender?event=${id}`}
-                        className="btn-outline flex-shrink-0 text-sm px-4 py-3"
-                        aria-label="Tengo esta boleta"
-                      >
-                        Tengo una así
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Main: listings + modal */}
+            <ListingsSection
+              listings={listings}
+              reqCount={reqCount}
+              eventId={id}
+              eventName={event.name}
+            />
 
             {/* Sidebar */}
             <aside>

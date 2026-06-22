@@ -1,54 +1,70 @@
+'use client'
+
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import Reveal from '@/components/ui/Reveal'
 import { formatCOP } from '@/lib/utils'
 
-export const metadata: Metadata = {
-  title: 'Eventos',
-  description: 'Todos los conciertos, festivales y partidos del Mundial 2026 con boletas disponibles en Colombia.',
+type DbEvent = {
+  id: string
+  name: string
+  artist: string | null
+  date: string
+  city: string
+  category: string
+  visual: string | null
+  image_url: string | null
+  is_active: boolean
+  is_featured: boolean
 }
-
-const VISUALS: Record<string, string> = {
-  '1':  'linear-gradient(150deg,#1A0635 0%,#5B0FA0 55%,#C2185B 100%)',
-  '2':  'linear-gradient(150deg,#0A2515 0%,#155C30 50%,#9A7800 100%)',
-  '3':  'linear-gradient(150deg,#091520 0%,#0D3040 55%,#C2560A 100%)',
-  '4':  'linear-gradient(150deg,#080808 0%,#220000 50%,#550000 100%)',
-  '5':  'linear-gradient(150deg,#020C1A 0%,#103560 55%,#5B2FCF 100%)',
-  '6':  'linear-gradient(150deg,#020C1A 0%,#103560 55%,#5B2FCF 100%)',
-  '7':  'linear-gradient(150deg,#0A0A1A 0%,#1A0060 55%,#3A40A0 100%)',
-  '8':  'linear-gradient(150deg,#1A0A00 0%,#3D1800 50%,#8B1A00 100%)',
-  '9':  'linear-gradient(150deg,#0A1500 0%,#1A3000 55%,#4A6800 100%)',
-  '10': 'linear-gradient(150deg,#0A0A0A 0%,#1A1A00 50%,#4A3800 100%)',
-  '11': 'linear-gradient(150deg,#0A0A0A 0%,#1A0000 50%,#3A0000 100%)',
-  '12': 'linear-gradient(150deg,#1A0635 0%,#3B1A6B 55%,#8B2BE2 100%)',
-  '13': 'linear-gradient(150deg,#0A2515 0%,#155C30 50%,#9A7800 100%)',
-}
-
-const ALL_EVENTS = [
-  { id: '1',  name: 'Karol G',                       sub: 'Viajando Por el Mundo',       date: '2026-12-04', city: 'Bogotá',            cat: 'CONCIERTO',   available: 12, seeking: 34, minPrice: 380000,  wm: 'KG'  },
-  { id: '2',  name: 'Colombia vs Portugal',           sub: 'FIFA Mundial 2026 · Grupo K', date: '2026-06-27', city: 'Miami',             cat: 'MUNDIAL_2026',available: 3,  seeking: 89, minPrice: 1200000, wm: 'COL' },
-  { id: '3',  name: 'Colombia vs RD del Congo',       sub: 'FIFA Mundial 2026 · Grupo K', date: '2026-06-23', city: 'Guadalajara',       cat: 'MUNDIAL_2026',available: 1,  seeking: 67, minPrice: 980000,  wm: 'COL' },
-  { id: '4',  name: 'Gorillaz',                       sub: 'The Mountain Tour',            date: '2026-11-18', city: 'Bogotá',            cat: 'CONCIERTO',   available: 8,  seeking: 21, minPrice: 290000,  wm: 'GZ'  },
-  { id: '5',  name: 'Iron Maiden',                    sub: 'Run For Your Lives Tour',      date: '2026-10-11', city: 'Bogotá',            cat: 'CONCIERTO',   available: 5,  seeking: 17, minPrice: 320000,  wm: 'IM'  },
-  { id: '6',  name: 'EDC Colombia 2026',              sub: 'Festival electrónico',         date: '2026-10-10', city: 'Bogotá',            cat: 'FESTIVAL',    available: 20, seeking: 45, minPrice: 180000,  wm: 'EDC' },
-  { id: '7',  name: 'Morat',                          sub: 'YEM World Tour',               date: '2026-08-15', city: 'Bogotá',            cat: 'CONCIERTO',   available: 6,  seeking: 19, minPrice: 240000,  wm: 'MT'  },
-  { id: '8',  name: 'Juanes',                         sub: 'World Tour 2026',              date: '2026-11-15', city: 'Medellín',          cat: 'CONCIERTO',   available: 4,  seeking: 11, minPrice: 260000,  wm: 'JN'  },
-  { id: '9',  name: 'Carlos Vives',                   sub: 'Tour Al Sol',                  date: '2026-09-18', city: 'Cali',              cat: 'CONCIERTO',   available: 7,  seeking: 15, minPrice: 210000,  wm: 'CV'  },
-  { id: '10', name: 'Ryan Castro',                    sub: 'Awooween',                     date: '2026-10-31', city: 'Bogotá',            cat: 'CONCIERTO',   available: 9,  seeking: 28, minPrice: 220000,  wm: 'RC'  },
-  { id: '11', name: 'Arcángel',                       sub: '20 Aniversario',               date: '2026-09-04', city: 'Bogotá',            cat: 'CONCIERTO',   available: 0,  seeking: 33, minPrice: 0,       wm: 'ARC' },
-  { id: '12', name: 'Ricardo Arjona',                 sub: 'Tour 2026',                    date: '2026-07-25', city: 'Medellín',          cat: 'CONCIERTO',   available: 3,  seeking: 9,  minPrice: 195000,  wm: 'RA'  },
-  { id: '13', name: 'Uzbekistán vs Colombia',         sub: 'FIFA Mundial 2026 · Grupo K',  date: '2026-06-17', city: 'Ciudad de México',  cat: 'MUNDIAL_2026',available: 2,  seeking: 54, minPrice: 850000,  wm: 'COL' },
-]
 
 const CATS = [
-  { key: 'TODAS',       label: 'Todos' },
+  { key: 'TODAS',        label: 'Todos' },
   { key: 'CONCIERTO',   label: 'Conciertos' },
-  { key: 'MUNDIAL_2026',label: 'Mundial 2026' },
+  { key: 'MUNDIAL_2026', label: 'Mundial 2026' },
   { key: 'FESTIVAL',    label: 'Festivales' },
+  { key: 'DEPORTES',    label: 'Deportes' },
 ]
 
+const SORT_OPTIONS = [
+  { value: 'date',      label: 'Por fecha' },
+  { value: 'name',      label: 'Por nombre' },
+]
+
+const DEFAULT_VISUAL = 'linear-gradient(150deg,#1A1A1A 0%,#2A2A2A 100%)'
+
+function categoryBadge(cat: string) {
+  if (cat === 'MUNDIAL_2026') return { label: 'Mundial', hot: true }
+  const map: Record<string, string> = {
+    CONCIERTO: 'Concierto',
+    FESTIVAL: 'Festival',
+    TEATRO: 'Teatro',
+    DEPORTES: 'Deportes',
+    OTRO: 'Otro',
+  }
+  return { label: map[cat] ?? cat, hot: false }
+}
+
 export default function EventosPage() {
+  const [events,  setEvents]  = useState<DbEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter,  setFilter]  = useState('TODAS')
+  const [sort,    setSort]    = useState('date')
+
+  useEffect(() => {
+    fetch('/api/events')
+      .then(r => r.json())
+      .then(data => { setEvents(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const filtered = useMemo(() => {
+    let list = filter === 'TODAS' ? events : events.filter(e => e.category === filter)
+    if (sort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name))
+    return list
+  }, [events, filter, sort])
+
   return (
     <>
       <Navbar />
@@ -73,10 +89,13 @@ export default function EventosPage() {
               {CATS.map(({ key, label }) => (
                 <button
                   key={key}
-                  className={`flex-shrink-0 px-5 py-3.5 t-label border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap
-                    ${key === 'TODAS' ? 'border-[var(--accent)] text-[var(--fg)]' : 'border-transparent hover:text-[var(--fg)]'}`}
-                  style={{ color: key === 'TODAS' ? 'var(--fg)' : 'var(--fg-muted)' }}
-                  aria-pressed={key === 'TODAS'}
+                  onClick={() => setFilter(key)}
+                  className="flex-shrink-0 px-5 py-3.5 t-label border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap"
+                  style={{
+                    borderBottomColor: filter === key ? 'var(--accent)' : 'transparent',
+                    color: filter === key ? 'var(--fg)' : 'var(--fg-muted)',
+                  }}
+                  aria-pressed={filter === key}
                 >
                   {label}
                 </button>
@@ -90,74 +109,109 @@ export default function EventosPage() {
 
           {/* Count + sort */}
           <div className="flex items-center justify-between mb-6">
-            <p className="t-label">{ALL_EVENTS.length} eventos</p>
-            <select className="input-field w-auto text-sm py-2 px-3" aria-label="Ordenar eventos" defaultValue="date">
-              <option value="date">Por fecha</option>
-              <option value="available">Más disponibles</option>
-              <option value="seeking">Más buscados</option>
+            <p className="t-label">
+              {loading ? 'Cargando...' : `${filtered.length} evento${filtered.length !== 1 ? 's' : ''}`}
+            </p>
+            <select
+              className="input-field w-auto text-sm py-2 px-3"
+              aria-label="Ordenar eventos"
+              value={sort}
+              onChange={e => setSort(e.target.value)}
+            >
+              {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
-          {/* Events grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px" style={{ background: 'var(--border)' }}>
-            {ALL_EVENTS.map((event, i) => {
-              const isWorldCup = event.cat === 'MUNDIAL_2026'
-              const visual = VISUALS[event.id] ?? 'linear-gradient(150deg,#1A1A1A,#2A2A2A)'
-              return (
-                <Reveal key={event.id} delay={i * 40} style={{ background: 'var(--bg)' }}>
-                  <Link
-                    href={`/eventos/${event.id}`}
-                    className="card-event group flex flex-col h-full"
-                    aria-label={`${event.name} — ${event.city}`}
-                  >
-                    {/* Visual */}
-                    <div className="ev-visual" style={{ aspectRatio: '16/9' }}>
-                      <div className="ev-visual-bg" style={{ background: visual }} />
-                      <div className="ev-visual-fade" />
-                      <span className="ev-watermark" aria-hidden="true">{event.wm}</span>
-                      <div className="absolute top-3 left-3 z-10">
-                        <span className={`badge ${isWorldCup ? 'badge-hot' : 'badge-muted'}`}>
-                          {isWorldCup ? 'Mundial' : event.cat.toLowerCase()}
-                        </span>
-                      </div>
-                      <div className="absolute top-3 right-3 z-10">
-                        <span className="t-label" style={{ color: 'rgba(255,255,255,0.45)' }}>{event.city}</span>
-                      </div>
-                    </div>
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px" style={{ background: 'var(--border)' }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="animate-pulse" style={{ background: 'var(--bg)', aspectRatio: '1/1.2' }}>
+                  <div className="h-40 bg-white/5" />
+                  <div className="p-5 space-y-3">
+                    <div className="h-3 bg-white/5 rounded w-24" />
+                    <div className="h-5 bg-white/8 rounded w-3/4" />
+                    <div className="h-3 bg-white/5 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-                    {/* Content */}
-                    <div className="flex flex-col flex-1 p-5 gap-3">
-                      <p className="t-label" style={{ color: 'var(--accent)' }}>
-                        {new Date(event.date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}
-                      </p>
-                      <h2
-                        className="font-poster group-hover:text-[var(--accent)] transition-colors duration-150 leading-tight"
-                        style={{ fontSize: '20px', letterSpacing: '-0.02em', color: 'var(--fg)' }}
-                      >
-                        {event.name}
-                      </h2>
-                      <p className="font-sans text-[12px] leading-relaxed flex-1" style={{ color: 'var(--fg-muted)' }}>{event.sub}</p>
-                      <div className="perforation" />
-                      <div className="flex items-end justify-between flex-wrap gap-2 pt-1">
-                        <div className="flex gap-1.5 flex-wrap">
-                          {event.available > 0
-                            ? <span className="badge badge-hot">{event.available} disponibles</span>
-                            : <span className="badge badge-muted">sin oferta</span>
-                          }
-                          {event.seeking > 0 && <span className="badge badge-seek">{event.seeking} buscando</span>}
-                        </div>
-                        {event.minPrice > 0 && (
-                          <span className="nums text-[12px]" style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-ticket)' }}>
-                            desde {formatCOP(event.minPrice)}
-                          </span>
+          {/* Empty state */}
+          {!loading && filtered.length === 0 && (
+            <div className="py-24 text-center">
+              <p className="font-poster text-[24px] leading-none" style={{ color: 'var(--fg-muted)' }}>
+                {events.length === 0 ? 'PRÓXIMAMENTE' : 'SIN RESULTADOS'}
+              </p>
+              <p className="t-label mt-3" style={{ color: 'var(--fg-subtle)' }}>
+                {events.length === 0
+                  ? 'Estamos cargando los primeros eventos. Vuelve pronto.'
+                  : 'Prueba con otro filtro.'}
+              </p>
+            </div>
+          )}
+
+          {/* Events grid */}
+          {!loading && filtered.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px" style={{ background: 'var(--border)' }}>
+              {filtered.map((event, i) => {
+                const visual = event.visual ?? DEFAULT_VISUAL
+                const { label: catLabel, hot } = categoryBadge(event.category)
+                const wm = (event.artist ?? event.name).slice(0, 3).toUpperCase()
+
+                return (
+                  <Reveal key={event.id} delay={i * 40} style={{ background: 'var(--bg)' }}>
+                    <Link
+                      href={`/eventos/${event.id}`}
+                      className="card-event group flex flex-col h-full"
+                      aria-label={`${event.name} — ${event.city}`}
+                    >
+                      {/* Visual */}
+                      <div className="ev-visual" style={{ aspectRatio: '16/9' }}>
+                        {event.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={event.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <div className="ev-visual-bg" style={{ background: visual }} />
                         )}
+                        <div className="ev-visual-fade" />
+                        <span className="ev-watermark" aria-hidden="true">{wm}</span>
+                        <div className="absolute top-3 left-3 z-10">
+                          <span className={`badge ${hot ? 'badge-hot' : 'badge-muted'}`}>{catLabel}</span>
+                        </div>
+                        <div className="absolute top-3 right-3 z-10">
+                          <span className="t-label" style={{ color: 'rgba(255,255,255,0.45)' }}>{event.city}</span>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                </Reveal>
-              )
-            })}
-          </div>
+
+                      {/* Content */}
+                      <div className="flex flex-col flex-1 p-5 gap-3">
+                        <p className="t-label" style={{ color: 'var(--accent)' }}>
+                          {new Date(event.date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}
+                        </p>
+                        <h2
+                          className="font-poster group-hover:text-[var(--accent)] transition-colors duration-150 leading-tight"
+                          style={{ fontSize: '20px', letterSpacing: '-0.02em', color: 'var(--fg)' }}
+                        >
+                          {event.name}
+                        </h2>
+                        {event.artist && (
+                          <p className="font-sans text-[12px] leading-relaxed flex-1" style={{ color: 'var(--fg-muted)' }}>
+                            {event.artist}
+                          </p>
+                        )}
+                        <div className="perforation" />
+                        <div className="flex items-end justify-between flex-wrap gap-2 pt-1">
+                          <span className="badge badge-seek">Buscar boleta</span>
+                        </div>
+                      </div>
+                    </Link>
+                  </Reveal>
+                )
+              })}
+            </div>
+          )}
         </div>
       </main>
     </>
