@@ -4,40 +4,22 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Reveal from '@/components/ui/Reveal'
-import { formatCOP } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 
-/* ── DB event mapped to UI shape ── */
 interface UiEvent {
-  id: string
-  name: string
-  sub: string
-  date: string
-  city: string
-  cat: string
-  visual: string
-  imageUrl: string
-  avail: number
-  seeking: number
-  price: number
+  id: string; name: string; sub: string; date: string; city: string; cat: string; visual: string; imageUrl: string
 }
 
 function mapEvent(ev: Record<string, unknown>): UiEvent {
-  const raw = ev.date as string
-  const formatted = raw
-    ? new Date(raw).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
-    : ''
   return {
     id:       String(ev.id),
     name:     String(ev.name ?? ''),
     sub:      String(ev.artist ?? ev.venue ?? ''),
-    date:     formatted,
+    date:     ev.date ? formatDate(ev.date as string) : '',
     city:     String(ev.city ?? ''),
     cat:      String(ev.category ?? 'OTRO'),
     visual:   String(ev.visual ?? 'linear-gradient(135deg,#1B1B26,#2A2A3A)'),
     imageUrl: String(ev.image_url ?? ''),
-    avail:    0,
-    seeking:  0,
-    price:    0,
   }
 }
 
@@ -53,132 +35,102 @@ const FAQ = [
   { q: '¿Es gratis usar la plataforma?',        a: 'Sí. Publicar y buscar es completamente gratis. La comisión aplica solo cuando cierras una venta (Etapa 3).' },
   { q: '¿Cómo me avisan del match?',             a: 'Por WhatsApp y email de forma simultánea, con los datos de contacto de la otra persona. Llega en segundos.' },
   { q: '¿Qué pasa si el vendedor no responde?', a: 'El match expira en 24 horas. Ambos vuelven a estar disponibles y el sistema sigue buscando.' },
-  { q: '¿Aceptan USD para el Mundial 2026?',    a: 'Sí. Los listings pueden publicarse en USD o COP. Mostramos ambas monedas con la tasa del día.' },
-  { q: '¿Puedo publicar varias boletas?',        a: 'Hasta 5 publicaciones activas simultáneamente con tu cuenta verificada.' },
+  { q: '¿Puedo publicar varias boletas?',        a: 'Sí, hasta 5 publicaciones activas simultáneamente con tu cuenta verificada.' },
 ]
 
-const STEPS_BUYER = [
-  { n: '01', title: 'Busca tu evento', desc: 'Encontrás el concierto o partido. Si hay boletas disponibles, contactás al vendedor de inmediato.' },
-  { n: '02', title: 'Deja tu solicitud', desc: 'Indicá cuánto pagás máximo y tu WhatsApp. El motor de matching corre automáticamente, 24/7.' },
-  { n: '03', title: 'Recibe el match', desc: 'Cuando aparezca una boleta que encaje, te llega notificación con los datos del vendedor. Tenés 24h.' },
+const STEPS = [
+  {
+    buyer: { n: '01', title: 'Busca tu evento', desc: 'Encontrás el concierto o partido. Si hay boletas disponibles, contactás al vendedor de inmediato.' },
+    seller: { n: '01', title: 'Publica tu boleta', desc: 'Evento, sección y precio. Menos de 2 minutos. El sistema busca compradores al instante.' },
+  },
+  {
+    buyer: { n: '02', title: 'Deja tu solicitud', desc: 'Indicá precio máximo y WhatsApp. El motor de matching corre automáticamente, 24/7.' },
+    seller: { n: '02', title: 'Espera el match', desc: 'Cuando alguien quiera tu boleta, te avisamos por WhatsApp con sus datos de contacto.' },
+  },
+  {
+    buyer: { n: '03', title: 'Recibe el match', desc: 'Cuando aparezca una boleta que encaje, te llega notificación con los datos del vendedor en segundos.' },
+    seller: { n: '03', title: 'Coordina la venta', desc: 'Contactate directamente con el comprador. Sin intermediarios.' },
+  },
 ]
 
-const STEPS_SELLER = [
-  { n: '01', title: 'Publica tu boleta', desc: 'Evento, sección y precio. Menos de 2 minutos. El sistema busca compradores al instante.' },
-  { n: '02', title: 'Espera el match', desc: 'Cuando alguien pague tu precio, te avisamos por WhatsApp con sus datos de contacto.' },
-  { n: '03', title: 'Coordina la venta', desc: 'Contactate directamente con el comprador. Sin intermediarios ni comisiones en Beta.' },
-]
-
-/* ── Helpers ── */
 function catBadge(cat: string) {
   const map: Record<string, string> = {
-    MUNDIAL_2026: 'bg-[rgba(74,222,128,0.12)] text-[#4ADE80]',
-    CONCIERTO:    'bg-[rgba(200,160,74,0.12)] text-[#C8A04A]',
-    FESTIVAL:     'bg-[rgba(252,211,77,0.12)] text-[#FCD34D]',
-    DEPORTES:     'bg-[rgba(248,113,113,0.12)] text-[#F87171]',
-    ROCK:         'bg-[rgba(129,140,248,0.12)] text-[#818CF8]',
-    URBANO:       'bg-[rgba(192,132,252,0.12)] text-[#C084FC]',
+    MUNDIAL_2026: 'bg-[rgba(74,222,128,0.15)] text-[#4ADE80] border border-[rgba(74,222,128,0.20)]',
+    CONCIERTO:    'bg-[rgba(200,160,74,0.12)] text-[#C8A04A] border border-[rgba(200,160,74,0.18)]',
+    FESTIVAL:     'bg-[rgba(252,211,77,0.12)] text-[#FCD34D] border border-[rgba(252,211,77,0.18)]',
+    DEPORTES:     'bg-[rgba(248,113,113,0.12)] text-[#F87171] border border-[rgba(248,113,113,0.18)]',
+    ROCK:         'bg-[rgba(129,140,248,0.12)] text-[#818CF8] border border-[rgba(129,140,248,0.18)]',
   }
-  return map[cat] ?? 'bg-white/8 text-white/50'
+  return map[cat] ?? 'bg-white/8 text-white/50 border border-white/10'
 }
 
-/* ── Mosaic card (hero only) ── */
-function PosterCard({ ev, width, animClass, style }: {
-  ev: UiEvent; width: number; animClass: string; style?: React.CSSProperties
-}) {
+/* ── Poster card (hero mosaic) ── */
+function PosterCard({ ev, width, animClass }: { ev: UiEvent; width: number; animClass: string }) {
   return (
-    <div
-      className={`${animClass} rounded-2xl overflow-hidden flex-shrink-0 shadow-[0_24px_64px_rgba(0,0,0,0.65)]`}
-      style={{ width, aspectRatio: '3/4', position: 'relative', ...style }}
-    >
+    <div className={`${animClass} rounded-2xl overflow-hidden flex-shrink-0 shadow-[0_24px_64px_rgba(0,0,0,0.65)]`}
+      style={{ width, aspectRatio: '2/3', position: 'relative' }}>
       <div className="absolute inset-0" style={{ background: ev.visual }} />
-      {ev.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={ev.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-      )}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.75) 0%,transparent 55%)' }} />
+      {ev.imageUrl && <img src={ev.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.82) 0%,rgba(0,0,0,0.20) 50%,transparent 100%)' }} />
       <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10 pointer-events-none" />
       <div className="absolute top-3 left-3 z-10">
-        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${catBadge(ev.cat)}`}>{ev.cat}</span>
+        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${catBadge(ev.cat)}`}>
+          {ev.cat === 'MUNDIAL_2026' ? '⚽' : ev.cat}
+        </span>
       </div>
       <div className="absolute bottom-3 left-3 right-3 z-10">
-        <p className="text-[9px] text-white/45 uppercase tracking-widest mb-0.5">{ev.city}</p>
-        <p className="text-[14px] font-bold text-white leading-tight line-clamp-2">{ev.name}</p>
-        <p className="text-[10px] text-white/35 mt-1">{ev.date}</p>
+        <p className="text-[9px] text-[#C8A04A] uppercase tracking-widest font-semibold mb-1">{ev.date}</p>
+        <p className="text-[13px] font-bold text-white leading-tight line-clamp-2" style={{ fontFamily: 'var(--font-display)' }}>{ev.name}</p>
+        <p className="text-[9px] text-white/35 mt-0.5">{ev.city}</p>
       </div>
     </div>
   )
 }
 
-/* ── Event card ── */
+/* ── Event card (grid) ── */
 function EventCard({ ev }: { ev: UiEvent }) {
-  const catLabel = { MUNDIAL_2026: '⚽ Mundial', CONCIERTO: 'Concierto', FESTIVAL: 'Festival', DEPORTES: 'Deportes', ROCK: 'Rock', URBANO: 'Urbano' }[ev.cat] ?? ev.cat
+  const catLabel = {
+    MUNDIAL_2026: '⚽ Mundial 2026', CONCIERTO: 'Concierto', FESTIVAL: 'Festival',
+    DEPORTES: 'Deportes', ROCK: 'Rock', URBANO: 'Urbano',
+  }[ev.cat] ?? ev.cat
 
   return (
-    <Link href={`/eventos/${ev.id}`} className="card-event group flex flex-col h-full" aria-label={ev.name}>
-      {/* Visual */}
-      <div className="relative overflow-hidden flex-shrink-0" style={{ aspectRatio: '16/9' }}>
-        <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.06]" style={{ background: ev.visual }} />
-        {ev.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={ev.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
-        )}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 55%)' }} />
-        <div className="absolute top-2.5 left-2.5 z-10">
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${catBadge(ev.cat)}`}>{catLabel}</span>
-        </div>
-        <div className="absolute bottom-2.5 left-3 z-10">
-          <p className="text-[9px] text-white/40 uppercase tracking-widest">{ev.city}</p>
-        </div>
+    <Link href={`/eventos/${ev.id}`}
+      className="group relative block rounded-xl overflow-hidden"
+      style={{ aspectRatio: '2/3' }}
+      aria-label={ev.name}
+    >
+      <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.04]" style={{ background: ev.visual }} />
+      {ev.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={ev.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+      )}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.30) 50%,transparent 75%)' }} />
+      <div className="absolute inset-0 rounded-xl ring-1 ring-white/8 group-hover:ring-[#C8A04A]/40 transition-colors duration-300 pointer-events-none" />
+
+      <div className="absolute top-2.5 left-2.5 z-10">
+        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${catBadge(ev.cat)}`}>{catLabel}</span>
+      </div>
+      <div className="absolute top-2.5 right-2.5 z-10">
+        <span className="text-[9px] text-white/40 uppercase tracking-widest">{ev.city}</span>
       </div>
 
-      {/* Card body */}
-      <div className="p-3.5 flex flex-col flex-1">
-        <p className="text-[15px] font-bold text-[#EDE9DF] leading-snug line-clamp-2">{ev.name}</p>
-        <p className="text-[12px] text-[#EDE9DF]/35 mt-1">{ev.date}</p>
-        {ev.sub && <p className="text-[11px] text-[#EDE9DF]/22 mt-0.5 truncate">{ev.sub}</p>}
-
-        <div className="flex-1" />
-
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.05]">
-          <span className="text-[12px] font-medium text-[#C8A04A]/70">Ver boletas</span>
-          <svg className="w-3.5 h-3.5 text-[#C8A04A]/40 -translate-x-1 group-hover:translate-x-0 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+      <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
+        <p className="text-[10px] font-semibold text-[#C8A04A] tracking-wider uppercase mb-1">{ev.date}</p>
+        <h3 className="text-[13px] md:text-[14px] font-bold text-white leading-snug line-clamp-2" style={{ fontFamily: 'var(--font-display)' }}>
+          {ev.name}
+        </h3>
+        {ev.sub && <p className="text-[10px] text-white/30 mt-0.5 truncate">{ev.sub}</p>}
+        <div className="mt-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200">
+          <span className="text-[11px] font-medium text-[#C8A04A]">Ver boletas</span>
+          <svg className="w-3 h-3 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
         </div>
       </div>
     </Link>
   )
 }
 
-/* ── Timeline step ── */
-function Step({ n, title, desc, isLast, accent }: {
-  n: string; title: string; desc: string; isLast: boolean; accent: string
-}) {
-  return (
-    <div className="flex gap-4">
-      {/* Number + connector */}
-      <div className="flex flex-col items-center flex-shrink-0">
-        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ border: `1.5px solid ${accent}40`, background: `${accent}10` }}>
-          <span className="text-[12px] font-bold" style={{ color: accent }}>{n}</span>
-        </div>
-        {!isLast && (
-          <div className="w-px flex-1 mt-2" style={{ background: `linear-gradient(to bottom,${accent}30,transparent)`, minHeight: '28px' }} />
-        )}
-      </div>
-      {/* Content */}
-      <div className={isLast ? 'pb-0' : 'pb-7'}>
-        <p className="text-[14px] font-semibold text-[#EDE9DF] mt-1.5">{title}</p>
-        <p className="text-[13px] leading-relaxed mt-1.5 text-[#EDE9DF]/40">{desc}</p>
-      </div>
-    </div>
-  )
-}
-
-/* ═════════════════════════════════════
-   PÁGINA
-═════════════════════════════════════ */
+/* ═══════ PÁGINA ═══════ */
 export default function Landing() {
   const [events,    setEvents]    = useState<UiEvent[]>([])
   const [loadingEv, setLoadingEv] = useState(true)
@@ -188,17 +140,11 @@ export default function Landing() {
   const eventsRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    fetch('/api/events')
-      .then(r => r.json())
-      .then(data => {
-        setEvents(Array.isArray(data) ? data.map(mapEvent) : [])
-        setLoadingEv(false)
-      })
-      .catch(() => setLoadingEv(false))
-    fetch('/api/stats')
-      .then(r => r.json())
-      .then(d => setStats(d))
-      .catch(() => {})
+    fetch('/api/events').then(r => r.json()).then(data => {
+      setEvents(Array.isArray(data) ? data.map(mapEvent) : [])
+      setLoadingEv(false)
+    }).catch(() => setLoadingEv(false))
+    fetch('/api/stats').then(r => r.json()).then(d => setStats(d)).catch(() => {})
   }, [])
 
   const catCounts = useMemo(() => {
@@ -208,26 +154,19 @@ export default function Landing() {
   }, [events])
 
   const filtered = useMemo(() => {
-    let evs = events
-    if (activeCat !== 'all') evs = evs.filter(e => e.cat === activeCat)
+    let evs = activeCat !== 'all' ? events.filter(e => e.cat === activeCat) : events
     if (query.trim()) {
       const q = query.toLowerCase()
-      evs = evs.filter(e =>
-        e.name.toLowerCase().includes(q) ||
-        e.city.toLowerCase().includes(q) ||
-        e.sub.toLowerCase().includes(q)
-      )
+      evs = evs.filter(e => e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) || e.sub.toLowerCase().includes(q))
     }
     return evs
   }, [events, activeCat, query])
 
-  const hasFilter = query.trim() || activeCat !== 'all'
+  const hasFilter = !!query.trim() || activeCat !== 'all'
 
   function handleSearch(val: string) {
     setQuery(val)
-    if (val && eventsRef.current) {
-      setTimeout(() => eventsRef.current!.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
-    }
+    if (val && eventsRef.current) setTimeout(() => eventsRef.current!.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
   }
 
   return (
@@ -238,51 +177,36 @@ export default function Landing() {
         {/* ══════ HERO ══════ */}
         <section className="relative overflow-hidden" aria-labelledby="hero-heading">
           <div className="hero-glow" />
-
-          {/* Deco dots */}
-          <div className="deco-dot w-3 h-3 bg-[#C8A04A] opacity-25"
-            style={{ top: '18%', left: '48%', '--dur': '9s', '--del': '0s' } as React.CSSProperties} />
-          <div className="deco-dot w-2 h-2 bg-[#E09438] opacity-35"
-            style={{ top: '70%', left: '42%', '--dur': '11s', '--del': '2s' } as React.CSSProperties} />
-          <div className="deco-dot w-4 h-4 bg-[#C8A04A] opacity-10"
-            style={{ top: '10%', right: '5%', '--dur': '13s', '--del': '4s' } as React.CSSProperties} />
+          <div className="deco-dot w-3 h-3 bg-[#C8A04A] opacity-20" style={{ top: '20%', left: '50%', '--dur': '9s', '--del': '0s' } as React.CSSProperties} />
+          <div className="deco-dot w-2 h-2 bg-[#E09438] opacity-30" style={{ top: '65%', left: '44%', '--dur': '11s', '--del': '2s' } as React.CSSProperties} />
 
           <div className="max-w-6xl mx-auto px-4 py-14 md:py-24 relative z-10">
-            <div className="grid md:grid-cols-[1fr_460px] gap-10 lg:gap-16 items-center">
+            <div className="grid md:grid-cols-[1fr_420px] gap-12 lg:gap-20 items-center">
 
               {/* Left */}
               <div>
-                {/* Live pill */}
-                <div className="inline-flex items-center gap-2 bg-[#1B1B26] rounded-full px-4 py-2 mb-7 border border-white/8 animate-fade-up">
-                  <span className="w-2 h-2 rounded-full bg-[#4ADE80] animate-pulse flex-shrink-0" />
-                  <span className="text-[12px] font-medium text-[#EDE9DF]/50">🇨🇴 Colombia · Conciertos · Mundial 2026</span>
+                <div className="inline-flex items-center gap-2 bg-[#1B1B26] rounded-full px-3.5 py-1.5 mb-7 border border-white/8 animate-fade-up">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse flex-shrink-0" />
+                  <span className="text-[11px] font-medium text-[#EDE9DF]/50">Colombia · Conciertos · Mundial 2026</span>
                 </div>
 
-                <h1
-                  id="hero-heading"
-                  className="animate-fade-up animate-delay-1"
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'clamp(40px, 6vw, 72px)',
-                    fontWeight: 700,
-                    lineHeight: 1.02,
-                    letterSpacing: '-0.03em',
-                    color: '#EDE9DF',
-                  }}
-                >
+                <h1 id="hero-heading" className="animate-fade-up animate-delay-1" style={{
+                  fontFamily: 'var(--font-display)', fontSize: 'clamp(44px,6.5vw,76px)',
+                  fontWeight: 800, lineHeight: 1.0, letterSpacing: '-0.04em', color: '#EDE9DF',
+                }}>
                   Tu boleta,<br />
                   <span style={{ color: 'var(--gold)' }}>sin rodeos.</span>
                 </h1>
 
-                <p className="text-[15px] text-[#EDE9DF]/45 leading-relaxed max-w-[380px] mt-4 animate-fade-up animate-delay-2">
-                  Conectamos compradores y vendedores directamente. Matching automático, WhatsApp inmediato.
+                <p className="text-[15px] text-[#EDE9DF]/40 leading-relaxed max-w-[360px] mt-4 animate-fade-up animate-delay-2">
+                  Compradores y vendedores directos. Matching automático. WhatsApp inmediato.
                 </p>
 
-                {/* Search bar — primary action */}
+                {/* Search */}
                 <div className="mt-7 animate-fade-up animate-delay-2">
-                  <div className="flex gap-2 max-w-[420px]">
+                  <div className="flex gap-2 max-w-[400px]">
                     <div className="relative flex-1">
-                      <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EDE9DF]/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EDE9DF]/25 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                       <input
@@ -290,205 +214,173 @@ export default function Landing() {
                         value={query}
                         onChange={e => handleSearch(e.target.value)}
                         placeholder="Artista, evento, ciudad..."
-                        className="w-full bg-[#1B1B26] border border-white/10 rounded-xl py-3.5 pl-10 pr-4 text-[14px] text-[#EDE9DF] placeholder:text-[#EDE9DF]/30 outline-none focus:border-[#C8A04A]/50 transition-colors"
-                        aria-label="Buscar eventos"
+                        className="w-full bg-[#1B1B26] border border-white/10 rounded-xl py-3.5 pl-10 pr-4 text-[14px] text-[#EDE9DF] placeholder:text-[#EDE9DF]/25 outline-none focus:border-[#C8A04A]/50 transition-colors"
                       />
                     </div>
-                    <Link href="/vender" className="btn-outline !py-3 !px-5 flex-shrink-0 !text-[14px]">
+                    <Link href="/vender" className="btn-outline !py-3 !px-5 flex-shrink-0 !text-[13px]">
                       Vender
                     </Link>
                   </div>
-                  {stats.listings > 0 && (
-                    <p className="text-[11px] text-[#EDE9DF]/25 mt-2 pl-1">
-                      {stats.listings} boleta{stats.listings !== 1 ? 's' : ''} activa{stats.listings !== 1 ? 's' : ''}{stats.requests > 0 ? ` · ${stats.requests} compradores buscando` : ''}
+                  {(stats.listings > 0 || stats.requests > 0) && (
+                    <p className="text-[11px] text-[#EDE9DF]/22 mt-2 pl-1">
+                      {stats.listings > 0 && `${stats.listings} boleta${stats.listings !== 1 ? 's' : ''} activa${stats.listings !== 1 ? 's' : ''}`}
+                      {stats.listings > 0 && stats.requests > 0 && ' · '}
+                      {stats.requests > 0 && `${stats.requests} comprador${stats.requests !== 1 ? 'es' : ''} buscando`}
                     </p>
                   )}
                 </div>
 
-                {/* Stats */}
-                <div className="flex gap-8 mt-9 animate-fade-up animate-delay-3">
-                  {[
-                    { n: stats.listings,       label: 'boletas activas' },
-                    { n: stats.requests,        label: 'buscando ahora' },
-                    { n: stats.matchesThisWeek, label: 'matches esta semana' },
-                  ].map(({ n, label }) => (
-                    <div key={label}>
-                      <p className="text-[24px] font-bold leading-none nums text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>{n}</p>
-                      <p className="text-[11px] text-[#EDE9DF]/35 mt-0.5">{label}</p>
-                    </div>
-                  ))}
+                {/* CTAs */}
+                <div className="flex items-center gap-3 mt-7 animate-fade-up animate-delay-3">
+                  <Link href="/comprar" className="btn-primary !text-[14px]">
+                    Buscar boleta
+                  </Link>
+                  <Link href="/vender" className="text-[13px] font-medium text-[#EDE9DF]/45 hover:text-[#C8A04A] transition-colors">
+                    Tengo una para vender →
+                  </Link>
                 </div>
-              </div>
 
-              {/* Right: floating mosaic (desktop only) */}
-              <div className="hidden md:block relative h-[480px] animate-fade-up animate-delay-3">
-                {events[1] && (
-                  <div className="absolute" style={{ top: '20px', left: '0px', zIndex: 1, opacity: 0.78 }}>
-                    <PosterCard ev={events[1]} width={178} animClass="mosaic-1" />
-                  </div>
-                )}
-                {events[0] && (
-                  <div className="absolute" style={{ top: '60px', left: '118px', zIndex: 3 }}>
-                    <PosterCard ev={events[0]} width={214} animClass="mosaic-2" />
-                  </div>
-                )}
-                {events[2] && (
-                  <div className="absolute" style={{ bottom: '30px', right: '0px', zIndex: 2, opacity: 0.80 }}>
-                    <PosterCard ev={events[2]} width={174} animClass="mosaic-3" />
-                  </div>
-                )}
-
-                {/* Floating badges — real data only */}
-                {stats.requests > 0 && (
-                  <div className="absolute left-0 bottom-10 z-10 bg-[#1B1B26] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.50)] px-4 py-3 border border-white/8">
-                    <p className="text-[22px] font-bold text-[#EDE9DF] leading-none nums" style={{ fontFamily: 'var(--font-display)' }}>{stats.requests}</p>
-                    <p className="text-[11px] text-[#EDE9DF]/40 mt-0.5">compradore{stats.requests !== 1 ? 's' : ''} buscando</p>
-                  </div>
-                )}
-                {stats.listings > 0 && (
-                  <div className="absolute right-4 top-10 z-10 bg-[#C8A04A] rounded-xl shadow-[0_4px_20px_rgba(200,160,74,0.40)] px-3 py-2">
-                    <p className="text-[11px] text-[#09090E]/60">boletas</p>
-                    <p className="text-[15px] font-bold text-[#09090E] leading-tight">{stats.listings} activa{stats.listings !== 1 ? 's' : ''}</p>
+                {/* Stats */}
+                {(stats.listings > 0 || stats.matchesThisWeek > 0) && (
+                  <div className="flex gap-7 mt-9 animate-fade-up animate-delay-3">
+                    {stats.listings > 0 && (
+                      <div>
+                        <p className="text-[22px] font-bold leading-none text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>{stats.listings}</p>
+                        <p className="text-[10px] text-[#EDE9DF]/30 mt-0.5 uppercase tracking-wider">boletas activas</p>
+                      </div>
+                    )}
+                    {stats.requests > 0 && (
+                      <div>
+                        <p className="text-[22px] font-bold leading-none text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>{stats.requests}</p>
+                        <p className="text-[10px] text-[#EDE9DF]/30 mt-0.5 uppercase tracking-wider">buscando ahora</p>
+                      </div>
+                    )}
+                    {stats.matchesThisWeek > 0 && (
+                      <div>
+                        <p className="text-[22px] font-bold leading-none text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>{stats.matchesThisWeek}</p>
+                        <p className="text-[10px] text-[#EDE9DF]/30 mt-0.5 uppercase tracking-wider">matches esta semana</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
+              {/* Right: floating mosaic */}
+              <div className="hidden md:block relative h-[460px] animate-fade-up animate-delay-3">
+                {loadingEv ? (
+                  <>
+                    <div className="absolute animate-pulse rounded-2xl" style={{ top: 20, left: 0, width: 160, aspectRatio: '2/3', background: 'var(--ink-raised)', opacity: 0.7 }} />
+                    <div className="absolute animate-pulse rounded-2xl" style={{ top: 55, left: 108, width: 194, aspectRatio: '2/3', background: 'var(--ink-raised)' }} />
+                    <div className="absolute animate-pulse rounded-2xl" style={{ bottom: 25, right: 0, width: 156, aspectRatio: '2/3', background: 'var(--ink-raised)', opacity: 0.7 }} />
+                  </>
+                ) : (
+                  <>
+                    {events[1] && <div className="absolute" style={{ top: 20, left: 0, zIndex: 1, opacity: 0.78 }}><PosterCard ev={events[1]} width={160} animClass="mosaic-1" /></div>}
+                    {events[0] && <div className="absolute" style={{ top: 55, left: 108, zIndex: 3 }}><PosterCard ev={events[0]} width={194} animClass="mosaic-2" /></div>}
+                    {events[2] && <div className="absolute" style={{ bottom: 25, right: 0, zIndex: 2, opacity: 0.80 }}><PosterCard ev={events[2]} width={156} animClass="mosaic-3" /></div>}
+                    {stats.requests > 0 && (
+                      <div className="absolute left-0 bottom-8 z-10 bg-[#1B1B26] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.50)] px-4 py-3 border border-white/8">
+                        <p className="text-[20px] font-bold text-[#EDE9DF] leading-none" style={{ fontFamily: 'var(--font-display)' }}>{stats.requests}</p>
+                        <p className="text-[10px] text-[#EDE9DF]/40 mt-0.5">compradore{stats.requests !== 1 ? 's' : ''} buscando</p>
+                      </div>
+                    )}
+                    {stats.listings > 0 && (
+                      <div className="absolute right-3 top-8 z-10 bg-[#C8A04A] rounded-xl shadow-[0_4px_20px_rgba(200,160,74,0.40)] px-3 py-2">
+                        <p className="text-[10px] text-[#09090E]/60 font-medium">boletas activas</p>
+                        <p className="text-[16px] font-bold text-[#09090E] leading-tight">{stats.listings}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </section>
 
         {/* ══════ TRUST ══════ */}
-        <Reveal>
-          <section className="bg-[#111118]" aria-label="Garantías">
-            <div className="max-w-6xl mx-auto px-4 py-7">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-0">
-                {[
-                  {
-                    icon: (
-                      <svg className="w-5 h-5 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                    ),
-                    title: 'Vendedores verificados',
-                    desc: 'Email en Etapa 1 · Cédula + selfie en Etapa 2',
-                  },
-                  {
-                    icon: (
-                      <svg className="w-5 h-5 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    ),
-                    title: 'Match instantáneo',
-                    desc: 'WhatsApp + email al momento del match',
-                  },
-                  {
-                    icon: (
-                      <svg className="w-5 h-5 text-[#C8A04A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    ),
-                    title: 'Sin comisión en Beta',
-                    desc: 'Publicar y buscar es gratis ahora',
-                  },
-                ].map(({ icon, title, desc }, i) => (
-                  <div key={title} className={`flex items-center gap-3.5 px-6 py-5 ${i > 0 ? 'sm:border-l border-white/[0.05] border-t sm:border-t-0' : ''}`}>
-                    <div className="w-9 h-9 rounded-xl bg-[#C8A04A]/10 flex items-center justify-center flex-shrink-0">
-                      {icon}
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-semibold text-[#EDE9DF]">{title}</p>
-                      <p className="text-[12px] text-[#EDE9DF]/35 mt-0.5">{desc}</p>
-                    </div>
+        <div className="bg-[#111118] border-y border-white/[0.04]">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/[0.05]">
+              {[
+                { icon: '🔒', title: 'Vendedores verificados', desc: 'Cédula + selfie para publicar' },
+                { icon: '⚡', title: 'Match instantáneo', desc: 'WhatsApp + email en segundos' },
+                { icon: '💸', title: 'Sin comisión en Beta', desc: 'Publicar y buscar es gratis' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="flex items-center gap-3 px-6 py-5">
+                  <span className="text-xl flex-shrink-0">{icon}</span>
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#EDE9DF]">{title}</p>
+                    <p className="text-[12px] text-[#EDE9DF]/35 mt-0.5">{desc}</p>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          </section>
-        </Reveal>
+          </div>
+        </div>
 
         {/* ══════ EVENTOS ══════ */}
-        <section ref={eventsRef} className="max-w-6xl mx-auto px-4 pt-10 pb-12" aria-labelledby="events-heading">
+        <section ref={eventsRef} className="max-w-6xl mx-auto px-4 pt-10 pb-14" aria-labelledby="events-heading">
 
-          {/* Scrollable category filter */}
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1" role="tablist" aria-label="Filtrar por categoría">
-            {CATS.map(cat => {
-              const count = catCounts[cat.id]
-              const isActive = activeCat === cat.id
-              return (
-                <button
-                  key={cat.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveCat(cat.id)}
-                  className={`cat-pill ${isActive ? 'active' : ''}`}
-                >
-                  {cat.label}
-                  {count != null && (
-                    <span className={`ml-1.5 text-[11px] tabular-nums ${isActive ? 'opacity-60' : 'opacity-35'}`}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Section header */}
-          <div className="flex items-center justify-between mt-8 mb-5">
-            <div>
-              <h2 id="events-heading"
-                className="text-[20px] font-bold text-[#EDE9DF] tracking-tight"
-                style={{ fontFamily: 'var(--font-display)' }}>
-                {hasFilter ? 'Resultados' : 'En cartelera'}
+          {/* Category pills + search header */}
+          <div className="flex flex-col gap-4 mb-7">
+            <div className="flex items-center justify-between">
+              <h2 id="events-heading" className="text-[18px] font-bold text-[#EDE9DF] tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>
+                {hasFilter ? `Resultados${query.trim() ? ` — "${query.trim()}"` : ''}` : 'En cartelera'}
               </h2>
-              {hasFilter && (
-                <p className="text-[12px] text-[#EDE9DF]/35 mt-0.5">
-                  {filtered.length} evento{filtered.length !== 1 ? 's' : ''}
-                  {query.trim() ? ` para "${query.trim()}"` : ''}
-                </p>
-              )}
+              <div className="flex items-center gap-4">
+                {hasFilter && (
+                  <button onClick={() => { setQuery(''); setActiveCat('all') }} className="text-[12px] text-[#C8A04A] hover:text-[#E09438] transition-colors">
+                    Limpiar ×
+                  </button>
+                )}
+                <Link href="/eventos" className="btn-ghost text-[12px]">Ver todos →</Link>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              {hasFilter && (
-                <button
-                  onClick={() => { setQuery(''); setActiveCat('all') }}
-                  className="text-[12px] text-[#C8A04A] hover:text-[#E09438] transition-colors"
-                >
-                  Limpiar filtros
-                </button>
-              )}
-              {!hasFilter && (
-                <Link href="/eventos" className="btn-ghost text-[13px]">Ver todos →</Link>
-              )}
+
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1" role="tablist">
+              {CATS.map(cat => {
+                const count = catCounts[cat.id]
+                const isActive = activeCat === cat.id
+                return (
+                  <button key={cat.id} role="tab" aria-selected={isActive}
+                    onClick={() => setActiveCat(cat.id)}
+                    className={`cat-pill ${isActive ? 'active' : ''} flex-shrink-0`}
+                  >
+                    {cat.label}
+                    {count != null && (
+                      <span className={`ml-1.5 text-[11px] tabular-nums ${isActive ? 'opacity-55' : 'opacity-30'}`}>{count}</span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Grid */}
           {loadingEv ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="rounded-2xl overflow-hidden border animate-pulse"
-                  style={{ background: 'var(--ink-mid)', borderColor: 'var(--ink-border)', aspectRatio: '3/4' }} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="rounded-xl overflow-hidden animate-pulse" style={{ background: 'var(--ink-mid)', aspectRatio: '2/3' }} />
               ))}
             </div>
           ) : filtered.length > 0 ? (
-            <div key={`${activeCat}-${query}`} className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            <div key={`${activeCat}-${query}`} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {filtered.map((ev, i) => (
-                <Reveal key={ev.id} delay={i * 50}>
+                <Reveal key={ev.id} delay={i * 40}>
                   <EventCard ev={ev} />
                 </Reveal>
               ))}
             </div>
           ) : events.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-[36px] mb-3">🎭</p>
-              <p className="text-[16px] font-semibold text-[#EDE9DF]">Próximamente</p>
-              <p className="text-[14px] text-[#EDE9DF]/40 mt-1 max-w-[280px] mx-auto">
-                Estamos cargando los primeros eventos. Vuelve pronto.
-              </p>
+            <div className="py-16 text-center space-y-3">
+              <p className="text-[15px] font-semibold text-[#EDE9DF]">Próximamente</p>
+              <p className="text-[13px] text-[#EDE9DF]/35 max-w-[260px] mx-auto leading-relaxed">Estamos cargando los primeros eventos. Vuelve pronto.</p>
             </div>
           ) : (
-            <div className="py-16 text-center">
-              <p className="text-[36px] mb-3" role="img" aria-label="Sin resultados">🎭</p>
-              <p className="text-[16px] font-semibold text-[#EDE9DF]">Sin resultados</p>
-              <p className="text-[14px] text-[#EDE9DF]/40 mt-1 max-w-[260px] mx-auto">
-                Intentá con otro artista, ciudad o categoría
-              </p>
-              <button onClick={() => { setQuery(''); setActiveCat('all') }} className="btn-primary mt-6 mx-auto">
+            <div className="py-16 text-center space-y-4">
+              <p className="text-[15px] font-semibold text-[#EDE9DF]">Sin resultados</p>
+              <p className="text-[13px] text-[#EDE9DF]/35">Intenta con otro artista o ciudad.</p>
+              <button onClick={() => { setQuery(''); setActiveCat('all') }} className="btn-primary mt-2 !text-sm">
                 Ver todos los eventos
               </button>
             </div>
@@ -497,42 +389,58 @@ export default function Landing() {
 
         {/* ══════ CÓMO FUNCIONA ══════ */}
         <Reveal>
-          <section className="bg-[#111118]" aria-labelledby="how-heading">
+          <section className="bg-[#111118] border-y border-white/[0.04]" aria-labelledby="how-heading">
             <div className="max-w-6xl mx-auto px-4 py-14">
-
               <div className="flex items-baseline justify-between mb-10">
-                <h2 id="how-heading"
-                  className="text-[22px] font-bold text-[#EDE9DF] tracking-tight"
-                  style={{ fontFamily: 'var(--font-display)' }}>
+                <h2 id="how-heading" className="text-[20px] font-bold text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>
                   Así funciona
                 </h2>
-                <span className="text-[11px] text-[#EDE9DF]/20 uppercase tracking-widest hidden sm:block">
-                  matching automático
-                </span>
+                <span className="text-[10px] text-[#EDE9DF]/20 uppercase tracking-widest hidden sm:block">Matching automático</span>
               </div>
 
               <div className="grid md:grid-cols-2 gap-10 md:gap-16">
                 {/* Compradores */}
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-7 text-[#C8A04A]">Para compradores</p>
-                  <div>
-                    {STEPS_BUYER.map((s, i) => (
-                      <Step key={s.n} {...s} isLast={i === STEPS_BUYER.length - 1} accent="#C8A04A" />
+                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-7 text-[#C8A04A]">Para compradores</p>
+                  <div className="space-y-0">
+                    {STEPS.map((s, i) => (
+                      <div key={i} className="flex gap-4">
+                        <div className="flex flex-col items-center flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: '1.5px solid rgba(200,160,74,0.35)', background: 'rgba(200,160,74,0.08)' }}>
+                            <span className="text-[11px] font-bold text-[#C8A04A]">{s.buyer.n}</span>
+                          </div>
+                          {i < STEPS.length - 1 && <div className="w-px flex-1 mt-2 mb-2" style={{ background: 'linear-gradient(to bottom,rgba(200,160,74,0.25),transparent)', minHeight: 24 }} />}
+                        </div>
+                        <div className={i < STEPS.length - 1 ? 'pb-7' : ''}>
+                          <p className="text-[14px] font-semibold text-[#EDE9DF] mt-1">{s.buyer.title}</p>
+                          <p className="text-[13px] text-[#EDE9DF]/38 leading-relaxed mt-1">{s.buyer.desc}</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                  <Link href="/comprar" className="btn-primary inline-flex mt-6">Buscar boleta</Link>
+                  <Link href="/comprar" className="btn-primary inline-flex mt-7 !text-[13px]">Buscar boleta</Link>
                 </div>
 
                 {/* Vendedores */}
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-7 text-[#E09438]">Para vendedores</p>
-                  <div>
-                    {STEPS_SELLER.map((s, i) => (
-                      <Step key={s.n} {...s} isLast={i === STEPS_SELLER.length - 1} accent="#E09438" />
+                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-7 text-[#E09438]">Para vendedores</p>
+                  <div className="space-y-0">
+                    {STEPS.map((s, i) => (
+                      <div key={i} className="flex gap-4">
+                        <div className="flex flex-col items-center flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: '1.5px solid rgba(224,148,56,0.35)', background: 'rgba(224,148,56,0.08)' }}>
+                            <span className="text-[11px] font-bold text-[#E09438]">{s.seller.n}</span>
+                          </div>
+                          {i < STEPS.length - 1 && <div className="w-px flex-1 mt-2 mb-2" style={{ background: 'linear-gradient(to bottom,rgba(224,148,56,0.25),transparent)', minHeight: 24 }} />}
+                        </div>
+                        <div className={i < STEPS.length - 1 ? 'pb-7' : ''}>
+                          <p className="text-[14px] font-semibold text-[#EDE9DF] mt-1">{s.seller.title}</p>
+                          <p className="text-[13px] text-[#EDE9DF]/38 leading-relaxed mt-1">{s.seller.desc}</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                  <Link href="/vender"
-                    className="inline-flex mt-6 items-center gap-1.5 text-[14px] font-semibold text-[#E09438] border-b border-[#E09438]/40 pb-0.5 hover:text-[#C8A04A] hover:border-[#C8A04A]/40 transition-colors">
+                  <Link href="/vender" className="inline-flex mt-7 items-center gap-1.5 text-[13px] font-semibold text-[#E09438] border-b border-[#E09438]/35 pb-0.5 hover:text-[#C8A04A] hover:border-[#C8A04A]/35 transition-colors">
                     Publicar boleta →
                   </Link>
                 </div>
@@ -542,27 +450,21 @@ export default function Landing() {
         </Reveal>
 
         {/* ══════ FAQ ══════ */}
-        <section className="max-w-4xl mx-auto px-4 py-14" aria-labelledby="faq-heading">
-          <h2 id="faq-heading"
-            className="text-[20px] font-bold text-[#EDE9DF] mb-7 tracking-tight"
-            style={{ fontFamily: 'var(--font-display)' }}>
+        <section className="max-w-3xl mx-auto px-4 py-14" aria-labelledby="faq-heading">
+          <h2 id="faq-heading" className="text-[18px] font-bold text-[#EDE9DF] mb-7" style={{ fontFamily: 'var(--font-display)' }}>
             Preguntas frecuentes
           </h2>
-          <div className="border-t border-white/[0.05]">
+          <div className="border-t border-white/[0.06]">
             {FAQ.map(({ q, a }, i) => (
-              <Reveal key={i} delay={i * 25}>
-                <details className="group border-b border-white/[0.05]">
+              <Reveal key={i} delay={i * 20}>
+                <details className="group border-b border-white/[0.06]">
                   <summary className="flex items-center justify-between gap-4 py-4 cursor-pointer list-none select-none">
-                    <span className="text-[14px] font-medium text-[#EDE9DF] group-open:text-[#C8A04A] transition-colors leading-snug">
-                      {q}
-                    </span>
-                    <svg aria-hidden="true"
-                      className="w-4 h-4 flex-shrink-0 text-[#EDE9DF]/20 transition-transform duration-200 group-open:rotate-45"
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span className="text-[14px] font-medium text-[#EDE9DF]/80 group-open:text-[#C8A04A] transition-colors leading-snug">{q}</span>
+                    <svg className="w-4 h-4 flex-shrink-0 text-[#EDE9DF]/20 transition-transform duration-200 group-open:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeWidth={2} d="M12 5v14M5 12h14" />
                     </svg>
                   </summary>
-                  <p className="pb-5 text-[13px] text-[#EDE9DF]/45 leading-relaxed max-w-[640px]">{a}</p>
+                  <p className="pb-5 text-[13px] text-[#EDE9DF]/42 leading-relaxed">{a}</p>
                 </details>
               </Reveal>
             ))}
@@ -571,27 +473,20 @@ export default function Landing() {
 
         {/* ══════ CTA FINAL ══════ */}
         <Reveal>
-          <section className="bg-[#C8A04A]" aria-labelledby="cta-heading">
+          <section className="bg-[#C8A04A]">
             <div className="max-w-6xl mx-auto px-4 py-16">
-              <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-10">
-                <h2 id="cta-heading"
-                  className="leading-[0.95]"
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'clamp(42px, 7vw, 88px)',
-                    fontWeight: 700,
-                    letterSpacing: '-0.03em',
-                    color: '#09090E',
-                  }}>
-                  ¿Tienes<br />una?<br />¿Necesitas<br />una?
+              <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-8">
+                <h2 className="leading-[0.92]" style={{
+                  fontFamily: 'var(--font-display)', fontSize: 'clamp(48px,8vw,96px)',
+                  fontWeight: 800, letterSpacing: '-0.04em', color: '#09090E',
+                }}>
+                  ¿Tienes<br />una?<br /><span style={{ opacity: 0.5 }}>¿Necesitas?</span>
                 </h2>
-                <div className="flex flex-col gap-3 flex-shrink-0 w-full md:w-auto">
-                  <Link href="/vender"
-                    className="bg-[#09090E] text-[#C8A04A] text-[15px] font-semibold px-8 py-4 rounded-xl hover:bg-[#1B1B26] transition-colors text-center">
+                <div className="flex flex-col gap-2.5 flex-shrink-0 w-full md:w-auto">
+                  <Link href="/vender" className="bg-[#09090E] text-[#C8A04A] text-[14px] font-semibold px-8 py-4 rounded-xl hover:bg-[#1B1B26] transition-colors text-center">
                     Tengo una boleta →
                   </Link>
-                  <Link href="/comprar"
-                    className="border-2 border-[#09090E]/18 text-[#09090E] text-[15px] font-medium px-8 py-4 rounded-xl hover:border-[#09090E]/35 transition-colors text-center">
+                  <Link href="/comprar" className="border-2 border-[#09090E]/15 text-[#09090E] text-[14px] font-medium px-8 py-4 rounded-xl hover:border-[#09090E]/30 transition-colors text-center">
                     Necesito una boleta →
                   </Link>
                 </div>
@@ -603,7 +498,7 @@ export default function Landing() {
       </main>
 
       {/* ══════ FOOTER ══════ */}
-      <footer className="bg-[#111118]" role="contentinfo">
+      <footer className="bg-[#0D0D12] border-t border-white/[0.04]" role="contentinfo">
         <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
             <div>
@@ -611,23 +506,19 @@ export default function Landing() {
                 <span className="font-bold text-[17px] text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>Boletas</span>
                 <span className="font-bold text-[17px] text-[#C8A04A]" style={{ fontFamily: 'var(--font-display)' }}>CO</span>
               </div>
-              <p className="text-[11px] text-[#EDE9DF]/25 mt-0.5">Conectamos fans en Colombia</p>
+              <p className="text-[11px] text-[#EDE9DF]/20 mt-0.5">Conectamos fans en Colombia · 2026</p>
             </div>
-            <nav className="flex flex-wrap gap-x-6 gap-y-2" aria-label="Footer">
+            <nav className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Footer">
               {[
-                { href: '/eventos',   label: 'Eventos' },
-                { href: '/comprar',   label: 'Comprar' },
-                { href: '/vender',    label: 'Vender' },
-                { href: '#',          label: 'Términos' },
-                { href: '#',          label: 'Privacidad' },
+                { href: '/eventos', label: 'Eventos' },
+                { href: '/comprar', label: 'Buscar boleta' },
+                { href: '/vender',  label: 'Vender' },
               ].map(({ href, label }) => (
-                <Link key={label} href={href}
-                  className="text-[13px] text-[#EDE9DF]/30 hover:text-[#EDE9DF]/70 transition-colors">
+                <Link key={label} href={href} className="text-[12px] text-[#EDE9DF]/25 hover:text-[#EDE9DF]/60 transition-colors">
                   {label}
                 </Link>
               ))}
             </nav>
-            <p className="text-[12px] text-[#EDE9DF]/20">© 2026</p>
           </div>
         </div>
       </footer>
