@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
@@ -45,6 +45,16 @@ type Tab = 'matches' | 'ventas' | 'compras'
 export default function DashboardPage() {
   const router = useRouter()
   const [tab,      setTab]      = useState<Tab>('matches')
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('tab')
+    if (p === 'ventas' || p === 'compras' || p === 'matches') setTab(p)
+  }, [])
+
+  function switchTab(key: Tab) {
+    setTab(key)
+    window.history.replaceState({}, '', `/dashboard?tab=${key}`)
+  }
   const [matches,  setMatches]  = useState<(Match & { userRole: 'BUYER' | 'SELLER' })[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [requests, setRequests] = useState<BuyRequest[]>([])
@@ -211,7 +221,7 @@ export default function DashboardPage() {
                 </p>
                 <p className="text-[11px] mt-0.5" style={{ color: 'rgba(237,233,223,0.40)' }}>Responde antes de que expire.</p>
               </div>
-              <button onClick={() => setTab('matches')}
+              <button onClick={() => switchTab('matches')}
                 className="text-[11px] font-semibold text-[#C8A04A] hover:text-[#E09438] transition-colors cursor-pointer flex-shrink-0">
                 Ver →
               </button>
@@ -234,7 +244,7 @@ export default function DashboardPage() {
                       key={key}
                       role="tab"
                       aria-selected={tab === key}
-                      onClick={() => setTab(key)}
+                      onClick={() => switchTab(key)}
                       className="flex items-center gap-2 px-4 py-3 text-[12px] font-semibold uppercase tracking-wider border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap flex-shrink-0"
                       style={{
                         borderBottomColor: tab === key ? '#C8A04A' : 'transparent',
@@ -479,11 +489,19 @@ export default function DashboardPage() {
 }
 
 /* ── MatchCountdown ── */
-function MatchCountdown({ expiresAt }: { expiresAt: string }) {
+function MatchCountdown({ expiresAt, onExpire }: { expiresAt: string; onExpire?: () => void }) {
   const [ms, setMs] = useState(() => new Date(expiresAt).getTime() - Date.now())
+  const onExpireRef = useRef(onExpire)
+  onExpireRef.current = onExpire
 
   useEffect(() => {
-    const id = setInterval(() => setMs(new Date(expiresAt).getTime() - Date.now()), 1000)
+    const initial = new Date(expiresAt).getTime() - Date.now()
+    if (initial <= 0) { onExpireRef.current?.(); return }
+    const id = setInterval(() => {
+      const rem = new Date(expiresAt).getTime() - Date.now()
+      setMs(rem)
+      if (rem <= 0) { onExpireRef.current?.(); clearInterval(id) }
+    }, 1000)
     return () => clearInterval(id)
   }, [expiresAt])
 
@@ -518,6 +536,9 @@ function MatchRow({ match, role, onConfirm, onReport }: {
   onConfirm: (id: string) => void
   onReport:  (id: string) => void
 }) {
+  const [isExpired, setIsExpired] = useState(() =>
+    match.expiresAt ? new Date(String(match.expiresAt)) <= new Date() : false
+  )
   const other      = role === 'BUYER' ? match.listing?.seller : match.request?.buyer
   const isPending  = match.status === 'PENDING'
   const isAccepted = match.status === 'ACCEPTED'
@@ -542,7 +563,7 @@ function MatchRow({ match, role, onConfirm, onReport }: {
           {role === 'BUYER' ? 'Comprando' : 'Vendiendo'}
         </span>
         <div className="flex items-center gap-2.5">
-          {isPending && match.expiresAt && <MatchCountdown expiresAt={String(match.expiresAt)} />}
+          {isPending && match.expiresAt && <MatchCountdown expiresAt={String(match.expiresAt)} onExpire={() => setIsExpired(true)} />}
           <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full"
             style={{ background: statusConfig.bg, color: statusConfig.color, border: `1px solid ${statusConfig.border}` }}>
             {statusConfig.label}
@@ -598,7 +619,7 @@ function MatchRow({ match, role, onConfirm, onReport }: {
         )}
 
         {/* Actions */}
-        {isPending && (
+        {isPending && !isExpired && (
           <div className="flex gap-2.5 pt-1">
             <button onClick={() => onConfirm(match.id)}
               className="btn-primary flex-1 justify-center !text-[13px] !py-3 cursor-pointer">
@@ -610,6 +631,11 @@ function MatchRow({ match, role, onConfirm, onReport }: {
               Reportar
             </button>
           </div>
+        )}
+        {isPending && isExpired && (
+          <p className="text-[11px] pt-1" style={{ color: 'rgba(237,233,223,0.28)' }}>
+            Este match expiró. Ambas partes vuelven a estar disponibles en el sistema.
+          </p>
         )}
         {isAccepted && (
           <p className="text-[12px]" style={{ color: 'rgba(74,222,128,0.70)' }}>

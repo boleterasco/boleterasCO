@@ -113,7 +113,7 @@ function VenderContent() {
               PUBLICA<br /><span className="text-accent">TU BOLETA</span>
             </h1>
             <p className="mt-3 text-[13px] text-fg-muted leading-relaxed max-w-sm">
-              Publicá tus boletas y el sistema busca compradores automáticamente. Te avisamos por WhatsApp cuando haya match.
+              Publicá tus boletas y el sistema busca compradores automáticamente. Te avisamos por email cuando haya match.
             </p>
           </div>
 
@@ -331,7 +331,7 @@ function VenderContent() {
                   <p className="text-sm text-accent mt-1 font-medium">{selected.name}</p>
                 )}
                 <p className="text-sm text-fg-muted mt-3 max-w-sm mx-auto leading-relaxed">
-                  Tu boleta está activa y el sistema ya busca compradores. Te avisamos por WhatsApp y email cuando haya un match.
+                  Tu boleta está activa y el sistema ya busca compradores. Te avisamos por email cuando haya un match.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">

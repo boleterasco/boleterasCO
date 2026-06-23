@@ -101,7 +101,7 @@ function RequestModal({
                 ¡Solicitud guardada!
               </p>
               <p className="text-[12px] mt-2 leading-relaxed max-w-[240px] mx-auto" style={{ color: 'rgba(237,233,223,0.40)' }}>
-                Te avisamos por WhatsApp y email en cuanto aparezca una boleta que encaje.
+                Te avisamos por email en cuanto aparezca una boleta que encaje.
               </p>
             </div>
             <div className="flex gap-2.5 justify-center">
@@ -227,7 +227,7 @@ function RequestModal({
 
               <div className="flex items-center justify-center gap-4 pt-1">
                 {[
-                  { icon: '⚡', text: 'Aviso por WhatsApp' },
+                  { icon: '⚡', text: 'Aviso por email' },
                   { icon: '🔒', text: 'Gratis, sin comisión' },
                 ].map(({ icon, text }) => (
                   <div key={text} className="flex items-center gap-1.5">
@@ -290,7 +290,7 @@ function ConfirmModal({ listing, onClose }: { listing: DbListing; onClose: () =>
                 ¡Solicitud enviada!
               </p>
               <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: 'rgba(237,233,223,0.40)' }}>
-                Te avisamos por WhatsApp cuando haya match.
+                Te avisamos por email cuando haya match.
               </p>
             </div>
             <button onClick={onClose} className="btn-outline w-full justify-center !py-3 cursor-pointer">
@@ -337,7 +337,7 @@ function ConfirmModal({ listing, onClose }: { listing: DbListing; onClose: () =>
                 </p>
               )}
               <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(237,233,223,0.25)' }}>
-                Al confirmar, el sistema notifica al vendedor. Si hay match, recibirás sus datos por WhatsApp.
+                Al confirmar, el sistema notifica al vendedor. Si hay match, recibirás los datos de contacto por email.
               </p>
               <div className="flex gap-2.5">
                 <button onClick={onClose} className="btn-outline flex-1 justify-center !py-3.5 cursor-pointer">Cancelar</button>

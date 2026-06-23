@@ -33,7 +33,7 @@ const CATS = [
 
 const FAQ = [
   { q: '¿Es gratis usar la plataforma?',        a: 'Sí. Publicar y buscar es completamente gratis. La comisión aplica solo cuando cierras una venta (Etapa 3).' },
-  { q: '¿Cómo me avisan del match?',             a: 'Por WhatsApp y email de forma simultánea, con los datos de contacto de la otra persona. Llega en segundos.' },
+  { q: '¿Cómo me avisan del match?',             a: 'Por email de forma inmediata, con los datos de contacto de la otra persona. Llega en segundos.' },
   { q: '¿Qué pasa si el vendedor no responde?', a: 'El match expira en 24 horas. Ambos vuelven a estar disponibles y el sistema sigue buscando.' },
   { q: '¿Puedo publicar varias boletas?',        a: 'Sí, hasta 5 publicaciones activas simultáneamente con tu cuenta verificada.' },
 ]
@@ -44,8 +44,8 @@ const STEPS = [
     seller: { n: '01', title: 'Publica tu boleta', desc: 'Evento, sección y precio. Menos de 2 minutos. El sistema busca compradores al instante.' },
   },
   {
-    buyer: { n: '02', title: 'Deja tu solicitud', desc: 'Indicá precio máximo y WhatsApp. El motor de matching corre automáticamente, 24/7.' },
-    seller: { n: '02', title: 'Espera el match', desc: 'Cuando alguien quiera tu boleta, te avisamos por WhatsApp con sus datos de contacto.' },
+    buyer: { n: '02', title: 'Deja tu solicitud', desc: 'Indicá precio máximo. El motor de matching corre automáticamente, 24/7.' },
+    seller: { n: '02', title: 'Espera el match', desc: 'Cuando alguien quiera tu boleta, te avisamos por email con sus datos de contacto.' },
   },
   {
     buyer: { n: '03', title: 'Recibe el match', desc: 'Cuando aparezca una boleta que encaje, te llega notificación con los datos del vendedor en segundos.' },
@@ -199,7 +199,7 @@ export default function Landing() {
                 </h1>
 
                 <p className="text-[15px] text-[#EDE9DF]/40 leading-relaxed max-w-[360px] mt-4 animate-fade-up animate-delay-2">
-                  Compradores y vendedores directos. Matching automático. WhatsApp inmediato.
+                  Compradores y vendedores directos. Matching automático. Notificación inmediata.
                 </p>
 
                 {/* Search */}
@@ -318,7 +318,7 @@ export default function Landing() {
                     </svg>
                   ),
                   title: 'Match instantáneo',
-                  desc: 'WhatsApp + email en segundos',
+                  desc: 'Notificación por email',
                 },
                 {
                   icon: (

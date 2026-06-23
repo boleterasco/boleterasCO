@@ -22,11 +22,18 @@ function RegisterContent() {
   const pwMatch    = !form.confirm || form.password === form.confirm
   const pwStrong   = form.password.length === 0 || form.password.length >= 8
 
+  function validatePhone(p: string) {
+    const c = p.replace(/[\s\-()./]/g, '')
+    if (!c) return true
+    return /^\+?[1-9]\d{7,14}$/.test(c) || /^3\d{9}$/.test(c)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (form.password !== form.confirm) { setError('Las contraseñas no coinciden'); return }
     if (form.password.length < 8)       { setError('La contraseña debe tener mínimo 8 caracteres'); return }
     if (!form.name.trim())              { setError('Ingresa tu nombre'); return }
+    if (!validatePhone(form.phone))     { setError('Número inválido. Ejemplo: +573001234567 o 3001234567'); return }
     setLoading(true)
     setError(null)
 
@@ -125,7 +132,7 @@ function RegisterContent() {
             <div>
               <label htmlFor="phone" className="block text-[11px] font-semibold mb-1.5 uppercase tracking-wider"
                 style={{ color: 'rgba(237,233,223,0.40)' }}>
-                WhatsApp <span style={{ color: 'rgba(237,233,223,0.22)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(para recibir matches)</span>
+                Teléfono / WhatsApp <span style={{ color: 'rgba(237,233,223,0.22)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(para contacto entre partes)</span>
               </label>
               <input id="phone" type="tel" value={form.phone} onChange={update('phone')}
                 className="input-field w-full" placeholder="+57 300 000 0000" autoComplete="tel" />

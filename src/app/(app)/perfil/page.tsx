@@ -47,9 +47,16 @@ export default function PerfilPage() {
     setError('')
   }
 
+  function validatePhone(p: string) {
+    const c = p.replace(/[\s\-()./]/g, '')
+    if (!c) return true
+    return /^\+?[1-9]\d{7,14}$/.test(c) || /^3\d{9}$/.test(c)
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!form.full_name.trim()) { setError('El nombre no puede estar vacío.'); return }
+    if (!validatePhone(form.phone)) { setError('Número inválido. Ejemplo: +573001234567 o 3001234567'); return }
 
     setSaving(true)
     setError('')
@@ -110,7 +117,7 @@ export default function PerfilPage() {
               MI PERFIL
             </h1>
             <p className="mt-3 text-[13px] leading-relaxed" style={{ color: 'rgba(237,233,223,0.45)' }}>
-              Tu número de WhatsApp es clave — se comparte con tu contraparte cuando hay un match.
+              Tu número de teléfono se comparte con tu contraparte cuando hay un match.
             </p>
           </div>
 
@@ -124,9 +131,13 @@ export default function PerfilPage() {
               {/* Email (read-only) */}
               <div className="space-y-2">
                 <label className="text-label text-fg-muted block">Email</label>
-                <div className="input-field opacity-50 cursor-not-allowed select-all text-[13px]">
-                  {profile?.email}
-                </div>
+                <input
+                  type="email"
+                  disabled
+                  readOnly
+                  value={profile?.email ?? ''}
+                  className="input-field opacity-50 cursor-not-allowed w-full"
+                />
                 <p className="text-[11px]" style={{ color: 'rgba(237,233,223,0.25)' }}>El email no se puede cambiar.</p>
               </div>
 
