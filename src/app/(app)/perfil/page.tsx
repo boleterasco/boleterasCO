@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import PhoneField from '@/components/ui/PhoneField'
 
 type Profile = {
   id: string
@@ -19,6 +20,8 @@ type Profile = {
   payout_bank: string | null
   payout_account: string | null
   payout_holder: string | null
+  payout_account_type: 'ahorros' | 'corriente' | null
+  payout_cedula: string | null
 }
 
 export default function PerfilPage() {
@@ -32,6 +35,8 @@ export default function PerfilPage() {
     full_name: '', phone: '',
     payout_method: 'nequi' as 'nequi'|'daviplata'|'bank',
     payout_phone: '', payout_bank: '', payout_account: '', payout_holder: '',
+    payout_account_type: 'ahorros' as 'ahorros'|'corriente',
+    payout_cedula: '',
   })
 
   useEffect(() => {
@@ -46,11 +51,13 @@ export default function PerfilPage() {
         setForm({
           full_name:      data.full_name ?? '',
           phone:          data.whatsapp ?? data.phone ?? '',
-          payout_method:  (data.payout_method as 'nequi'|'daviplata'|'bank') ?? 'nequi',
-          payout_phone:   data.payout_phone ?? '',
-          payout_bank:    data.payout_bank ?? '',
-          payout_account: data.payout_account ?? '',
-          payout_holder:  data.payout_holder ?? '',
+          payout_method:       (data.payout_method as 'nequi'|'daviplata'|'bank') ?? 'nequi',
+          payout_phone:        data.payout_phone ?? '',
+          payout_bank:         data.payout_bank ?? '',
+          payout_account:      data.payout_account ?? '',
+          payout_holder:       data.payout_holder ?? '',
+          payout_account_type: (data.payout_account_type as 'ahorros'|'corriente') ?? 'ahorros',
+          payout_cedula:       data.payout_cedula ?? '',
         })
         setLoading(false)
       })
@@ -89,7 +96,9 @@ export default function PerfilPage() {
           payout_phone:   form.payout_phone,
           payout_bank:    form.payout_bank,
           payout_account: form.payout_account,
-          payout_holder:  form.payout_holder,
+          payout_holder:       form.payout_holder,
+          payout_account_type: form.payout_account_type,
+          payout_cedula:       form.payout_cedula,
         }),
       })
       if (res.ok) {
@@ -114,8 +123,10 @@ export default function PerfilPage() {
     form.payout_method  !== (profile.payout_method ?? 'nequi') ||
     form.payout_phone   !== (profile.payout_phone ?? '') ||
     form.payout_bank    !== (profile.payout_bank ?? '') ||
-    form.payout_account !== (profile.payout_account ?? '') ||
-    form.payout_holder  !== (profile.payout_holder ?? '')
+    form.payout_account      !== (profile.payout_account ?? '') ||
+    form.payout_holder       !== (profile.payout_holder ?? '') ||
+    form.payout_account_type !== (profile.payout_account_type ?? 'ahorros') ||
+    form.payout_cedula       !== (profile.payout_cedula ?? '')
   )
 
   return (
@@ -189,18 +200,11 @@ export default function PerfilPage() {
               <div className="space-y-2">
                 <label htmlFor="phone" className="text-label text-fg-muted block">
                   WhatsApp / Teléfono
-                  <span className="ml-2 text-[10px] font-normal" style={{ color: 'rgba(237,233,223,0.30)' }}>
-                    con código de país, ej. +573001234567
-                  </span>
                 </label>
-                <input
+                <PhoneField
                   id="phone"
-                  type="tel"
-                  className="input-field"
-                  placeholder="+573001234567"
                   value={form.phone}
-                  onChange={e => set('phone', e.target.value)}
-                  maxLength={20}
+                  onChange={v => { set('phone', v) }}
                 />
                 {profile && !profile.whatsapp && !profile.phone && (
                   <p className="text-[11px] flex items-center gap-1.5" style={{ color: '#F87171' }}>
@@ -240,9 +244,24 @@ export default function PerfilPage() {
                     <input type="text" placeholder="Titular de la cuenta" value={form.payout_holder}
                       onChange={e => { setForm(f => ({ ...f, payout_holder: e.target.value })); setSuccess(false) }}
                       className="input-field w-full !text-[13px]" />
+                    <input type="text" placeholder="Número de cédula" value={form.payout_cedula}
+                      onChange={e => { setForm(f => ({ ...f, payout_cedula: e.target.value })); setSuccess(false) }}
+                      className="input-field w-full !text-[13px]" />
                     <input type="text" placeholder="Banco (ej. Bancolombia)" value={form.payout_bank}
                       onChange={e => { setForm(f => ({ ...f, payout_bank: e.target.value })); setSuccess(false) }}
                       className="input-field w-full !text-[13px]" />
+                    <div className="flex gap-2">
+                      {(['ahorros','corriente'] as const).map(t => (
+                        <button key={t} type="button"
+                          onClick={() => { setForm(f => ({ ...f, payout_account_type: t })); setSuccess(false) }}
+                          className="flex-1 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors"
+                          style={form.payout_account_type === t
+                            ? { background: 'rgba(200,160,74,0.20)', color: '#C8A04A', border: '1px solid rgba(200,160,74,0.35)' }
+                            : { background: 'rgba(255,255,255,0.04)', color: 'rgba(237,233,223,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </button>
+                      ))}
+                    </div>
                     <input type="text" placeholder="Número de cuenta" value={form.payout_account}
                       onChange={e => { setForm(f => ({ ...f, payout_account: e.target.value })); setSuccess(false) }}
                       className="input-field w-full !text-[13px]" />

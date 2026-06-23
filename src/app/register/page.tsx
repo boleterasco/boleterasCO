@@ -4,13 +4,20 @@ import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import PhoneField from '@/components/ui/PhoneField'
 
 function RegisterContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const next         = searchParams.get('next') ?? '/dashboard'
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '', payout_method: 'nequi' as 'nequi'|'daviplata'|'bank', payout_phone: '', payout_account: '', payout_bank: '', payout_holder: '' })
+  const [form, setForm] = useState({
+    name: '', email: '', phone: '', password: '', confirm: '',
+    payout_method: 'nequi' as 'nequi'|'daviplata'|'bank',
+    payout_phone: '', payout_account: '', payout_bank: '', payout_holder: '',
+    payout_account_type: 'ahorros' as 'ahorros'|'corriente',
+    payout_cedula: '',
+  })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -48,7 +55,9 @@ function RegisterContent() {
         payout_phone:   form.payout_phone.trim(),
         payout_account: form.payout_account.trim(),
         payout_bank:    form.payout_bank.trim(),
-        payout_holder:  form.payout_holder.trim(),
+        payout_holder:       form.payout_holder.trim(),
+        payout_account_type: form.payout_account_type,
+        payout_cedula:       form.payout_cedula.trim(),
       } },
     })
     setLoading(false)
@@ -142,8 +151,7 @@ function RegisterContent() {
                 style={{ color: 'rgba(237,233,223,0.40)' }}>
                 Teléfono / WhatsApp <span style={{ color: 'rgba(237,233,223,0.22)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(para contacto entre partes)</span>
               </label>
-              <input id="phone" type="tel" value={form.phone} onChange={update('phone')}
-                className="input-field w-full" placeholder="+57 300 000 0000" autoComplete="tel" />
+              <PhoneField id="phone" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
             </div>
 
             {/* Payout info */}
@@ -173,9 +181,25 @@ function RegisterContent() {
                   <input type="text" placeholder="Titular de la cuenta" value={form.payout_holder}
                     onChange={e => setForm(f => ({ ...f, payout_holder: e.target.value }))}
                     className="input-field w-full !text-[13px]" />
+                  <input type="text" placeholder="Número de cédula" value={form.payout_cedula}
+                    onChange={e => setForm(f => ({ ...f, payout_cedula: e.target.value }))}
+                    className="input-field w-full !text-[13px]" />
                   <input type="text" placeholder="Banco (ej. Bancolombia)" value={form.payout_bank}
                     onChange={e => setForm(f => ({ ...f, payout_bank: e.target.value }))}
                     className="input-field w-full !text-[13px]" />
+                  {/* Tipo de cuenta */}
+                  <div className="flex gap-2">
+                    {(['ahorros','corriente'] as const).map(t => (
+                      <button key={t} type="button"
+                        onClick={() => setForm(f => ({ ...f, payout_account_type: t }))}
+                        className="flex-1 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors capitalize"
+                        style={form.payout_account_type === t
+                          ? { background: 'rgba(200,160,74,0.20)', color: '#C8A04A', border: '1px solid rgba(200,160,74,0.35)' }
+                          : { background: 'rgba(255,255,255,0.04)', color: 'rgba(237,233,223,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                   <input type="text" placeholder="Número de cuenta" value={form.payout_account}
                     onChange={e => setForm(f => ({ ...f, payout_account: e.target.value }))}
                     className="input-field w-full !text-[13px]" />
