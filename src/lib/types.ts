@@ -8,6 +8,16 @@ export interface User {
   email: string
   phone?: string | null
   fullName: string
+  ratingAvg?: number | null
+  ratingCount?: number
+}
+
+export interface Rating {
+  id: string
+  match_id: string
+  stars: number
+  comment?: string | null
+  created_at: string
 }
 
 export interface Event {

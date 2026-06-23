@@ -12,7 +12,14 @@ function mapEvent(db: any) {
   return { id: db?.id ?? '', name: db?.name ?? '', artist: db?.artist ?? '', date: db?.date ?? '', venue: db?.venue ?? '', city: db?.city ?? '', category: db?.category ?? 'OTRO', isActive: true, isFeatured: false }
 }
 function mapUser(db: any, fallbackId = '') {
-  return { id: fallbackId, fullName: db?.full_name ?? 'Usuario', email: '', phone: db?.phone ?? db?.whatsapp ?? null }
+  return {
+    id: fallbackId,
+    fullName: db?.full_name ?? 'Usuario',
+    email: '',
+    phone: db?.phone ?? db?.whatsapp ?? null,
+    ratingAvg: db?.rating_avg ? parseFloat(db.rating_avg) : null,
+    ratingCount: db?.rating_count ?? 0,
+  }
 }
 function mapListing(db: any): Listing {
   return { id: db.id, sellerId: db.seller_id, eventId: db.event_id, section: db.section, quantity: db.quantity, pricePerTicket: db.price_per_ticket, notes: db.notes ?? null, status: db.status, createdAt: db.created_at, event: mapEvent(db.event), seller: mapUser(db.seller, db.seller_id) }
@@ -64,6 +71,7 @@ export default function DashboardPage() {
   const [confirmingListing, setConfirmingListing] = useState<string | null>(null)
   const [confirmingRequest, setConfirmingRequest] = useState<string | null>(null)
   const [cancelling,        setCancelling]        = useState(false)
+  const [myRatings,         setMyRatings]         = useState<{ match_id: string; stars: number }[]>([])
 
   useEffect(() => {
     const supabase = createClient()
@@ -79,11 +87,13 @@ export default function DashboardPage() {
       fetch('/api/matches').then(r => r.json()),
       fetch('/api/listings?mine=true').then(r => r.json()),
       fetch('/api/requests').then(r => r.json()),
-    ]).then(([matchData, listData, reqData]) => {
+      fetch('/api/ratings').then(r => r.json()),
+    ]).then(([matchData, listData, reqData, ratingData]) => {
       const userId = matchData.userId ?? ''
       setMatches((matchData.matches ?? []).map((m: any) => mapMatch(m, userId)))
       setListings(Array.isArray(listData) ? listData.map(mapListing) : [])
       setRequests(Array.isArray(reqData)  ? reqData.map(mapRequest)  : [])
+      setMyRatings(Array.isArray(ratingData) ? ratingData : [])
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
@@ -283,6 +293,7 @@ export default function DashboardPage() {
                           role={(match as any).userRole}
                           onConfirm={handleConfirmMatch}
                           onReport={handleReportMatch}
+                          myRating={myRatings.find(r => r.match_id === match.id) ?? null}
                         />
                       ))}
                     </div>
@@ -530,18 +541,64 @@ function MatchCountdown({ expiresAt, onExpire }: { expiresAt: string; onExpire?:
 }
 
 /* ── MatchRow ── */
-function MatchRow({ match, role, onConfirm, onReport }: {
+function Stars({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <span className="inline-flex gap-0.5">
+      {[1,2,3,4,5].map(n => (
+        <svg key={n} width={size} height={size} viewBox="0 0 20 20" fill={n <= Math.round(value) ? '#C8A04A' : 'none'}
+          stroke="#C8A04A" strokeWidth={1.5}>
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      ))}
+    </span>
+  )
+}
+
+function MatchRow({ match, role, onConfirm, onReport, myRating }: {
   match: Match & { userRole: 'BUYER' | 'SELLER' }
   role: 'BUYER' | 'SELLER'
   onConfirm: (id: string) => void
   onReport:  (id: string) => void
+  myRating:  { match_id: string; stars: number } | null
 }) {
-  const [isExpired, setIsExpired] = useState(() =>
+  const [isExpired,      setIsExpired]      = useState(() =>
     match.expiresAt ? new Date(String(match.expiresAt)) <= new Date() : false
   )
+  const [ratingStars,   setRatingStars]   = useState(0)
+  const [ratingComment, setRatingComment] = useState('')
+  const [ratingState,   setRatingState]   = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [ratingError,   setRatingError]   = useState('')
+  const [localRating,   setLocalRating]   = useState<{ stars: number } | null>(null)
+
   const other      = role === 'BUYER' ? match.listing?.seller : match.request?.buyer
   const isPending  = match.status === 'PENDING'
   const isAccepted = match.status === 'ACCEPTED'
+
+  async function submitRating() {
+    if (!ratingStars) return
+    setRatingState('loading')
+    setRatingError('')
+    try {
+      const res = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: match.id, stars: ratingStars, comment: ratingComment }),
+      })
+      if (res.ok) {
+        setLocalRating({ stars: ratingStars })
+        setRatingState('done')
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setRatingError(d.error ?? 'Error al enviar calificación')
+        setRatingState('error')
+      }
+    } catch {
+      setRatingError('Error de conexión')
+      setRatingState('error')
+    }
+  }
+
+  const alreadyRated = myRating ?? localRating
   const event      = match.listing?.event
 
   const statusConfig = {
@@ -597,7 +654,19 @@ function MatchRow({ match, role, onConfirm, onReport }: {
             <p className="text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: 'rgba(200,160,74,0.55)' }}>
               Contacto — {role === 'BUYER' ? 'vendedor' : 'comprador'}
             </p>
-            <p className="text-[13px] font-semibold text-[#EDE9DF] mb-2">{other.fullName}</p>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-[13px] font-semibold text-[#EDE9DF]">{other.fullName}</p>
+              {other.ratingCount && other.ratingCount > 0 ? (
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <Stars value={other.ratingAvg ?? 0} size={12} />
+                  <span className="text-[10px] tabular-nums" style={{ color: 'rgba(237,233,223,0.40)' }}>
+                    {Number(other.ratingAvg).toFixed(1)} · {other.ratingCount} op.
+                  </span>
+                </div>
+              ) : (
+                <span className="text-[10px]" style={{ color: 'rgba(237,233,223,0.22)' }}>Sin calificaciones aún</span>
+              )}
+            </div>
             {other.phone ? (
               <a
                 href={`https://wa.me/${other.phone.replace(/\D/g, '')}`}
@@ -638,9 +707,72 @@ function MatchRow({ match, role, onConfirm, onReport }: {
           </p>
         )}
         {isAccepted && (
-          <p className="text-[12px]" style={{ color: 'rgba(74,222,128,0.70)' }}>
-            ✓ Negocio confirmado
-          </p>
+          <div className="space-y-3 pt-1">
+            <p className="text-[12px] flex items-center gap-1.5" style={{ color: 'rgba(74,222,128,0.70)' }}>
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+              Negocio confirmado
+            </p>
+
+            {alreadyRated ? (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                style={{ background: 'rgba(200,160,74,0.07)', border: '1px solid rgba(200,160,74,0.15)' }}>
+                <Stars value={alreadyRated.stars} size={13} />
+                <span className="text-[11px]" style={{ color: 'rgba(237,233,223,0.45)' }}>
+                  Calificaste con {alreadyRated.stars} estrella{alreadyRated.stars !== 1 ? 's' : ''}
+                </span>
+              </div>
+            ) : (
+              <div className="rounded-xl p-4 space-y-3"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(237,233,223,0.35)' }}>
+                  ¿Cómo fue tu experiencia?
+                </p>
+
+                {/* Star selector */}
+                <div className="flex gap-1.5">
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} onClick={() => setRatingStars(n)} aria-label={`${n} estrella${n !== 1 ? 's' : ''}`}
+                      className="cursor-pointer transition-transform hover:scale-110 active:scale-95">
+                      <svg width={22} height={22} viewBox="0 0 20 20"
+                        fill={n <= ratingStars ? '#C8A04A' : 'none'}
+                        stroke={n <= ratingStars ? '#C8A04A' : 'rgba(237,233,223,0.25)'}
+                        strokeWidth={1.5}>
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Optional comment */}
+                {ratingStars > 0 && (
+                  <textarea
+                    value={ratingComment}
+                    onChange={e => setRatingComment(e.target.value)}
+                    maxLength={200}
+                    rows={2}
+                    placeholder="Comentario opcional (máx. 200 caracteres)"
+                    className="input-field w-full resize-none !text-[12px] !py-2"
+                  />
+                )}
+
+                {ratingError && (
+                  <p className="text-[11px]" style={{ color: '#F87171' }}>{ratingError}</p>
+                )}
+
+                <button
+                  onClick={submitRating}
+                  disabled={!ratingStars || ratingState === 'loading'}
+                  className="btn-primary !text-[12px] !px-4 !py-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {ratingState === 'loading'
+                    ? <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    : 'Enviar calificación'}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </article>

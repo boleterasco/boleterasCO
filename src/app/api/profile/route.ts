@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await adminClient
     .from('profiles')
-    .select('id, full_name, phone, whatsapp, verified_level, created_at')
+    .select('id, full_name, phone, whatsapp, verified_level, rating_avg, rating_count, created_at')
     .eq('id', user.id)
     .single()
 

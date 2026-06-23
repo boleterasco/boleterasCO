@@ -11,6 +11,8 @@ type Profile = {
   whatsapp: string | null
   email: string
   verified_level: number
+  rating_avg: number | null
+  rating_count: number
   created_at: string
 }
 
@@ -182,6 +184,40 @@ export default function PerfilPage() {
                   </p>
                 )}
               </div>
+
+              {/* Reputation */}
+              {profile && (
+                <div className="flex items-center gap-3 p-3.5 rounded-xl"
+                  style={{ background: 'rgba(200,160,74,0.06)', border: '1px solid rgba(200,160,74,0.14)' }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+                      style={{ color: 'rgba(200,160,74,0.55)' }}>Tu reputación</p>
+                    {profile.rating_count > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="flex gap-0.5">
+                          {[1,2,3,4,5].map(n => (
+                            <svg key={n} width={14} height={14} viewBox="0 0 20 20"
+                              fill={n <= Math.round(profile.rating_avg ?? 0) ? '#C8A04A' : 'none'}
+                              stroke="#C8A04A" strokeWidth={1.5}>
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </span>
+                        <span className="text-[13px] font-bold tabular-nums" style={{ color: '#C8A04A', fontFamily: 'var(--font-display)' }}>
+                          {Number(profile.rating_avg).toFixed(1)}
+                        </span>
+                        <span className="text-[11px]" style={{ color: 'rgba(237,233,223,0.35)' }}>
+                          ({profile.rating_count} calificación{profile.rating_count !== 1 ? 'es' : ''})
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-[12px]" style={{ color: 'rgba(237,233,223,0.30)' }}>
+                        Sin calificaciones aún — aparecerán tras tus primeras transacciones.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Verification badge */}
               {profile && profile.verified_level > 0 && (

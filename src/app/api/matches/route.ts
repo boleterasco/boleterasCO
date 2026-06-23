@@ -25,12 +25,12 @@ export async function GET() {
       id, listing_id, request_id, status, expires_at, created_at, notified_at,
       listing:listings(
         id, seller_id, event_id, section, quantity, price_per_ticket, notes, status, created_at,
-        seller:profiles(full_name, phone, whatsapp),
+        seller:profiles(full_name, phone, whatsapp, rating_avg, rating_count),
         event:events(id, name, date, city, venue, category)
       ),
       request:requests(
         id, buyer_id, event_id, section, quantity, max_price, notes, status, created_at,
-        buyer:profiles(full_name, phone, whatsapp)
+        buyer:profiles(full_name, phone, whatsapp, rating_avg, rating_count)
       )
     `)
     .order('created_at', { ascending: false })
