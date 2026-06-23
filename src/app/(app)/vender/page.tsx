@@ -51,7 +51,8 @@ function VenderContent() {
     return n ? Number(n).toLocaleString('es-CO') : ''
   }
 
-  const step1Valid = form.eventId && (form.section || form.customSection) && form.quantity >= 1 && price >= 50000
+  const sectionFinal = form.section === 'Otro' ? form.customSection : form.section
+  const step1Valid = form.eventId && sectionFinal && form.quantity >= 1 && price >= 50000
   const step2Valid = form.agreed
 
   async function handlePublish() {
@@ -248,7 +249,7 @@ function VenderContent() {
               >
                 Continuar
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="square" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </button>
             </div>
@@ -321,7 +322,7 @@ function VenderContent() {
             <div className="space-y-6 animate-fade-up text-center py-10">
               <div className="w-16 h-16 mx-auto rounded-2xl border-2 border-accent flex items-center justify-center" style={{ background: 'rgba(200,160,74,0.08)' }}>
                 <svg aria-hidden="true" className="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="square" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
               <div>

@@ -222,7 +222,7 @@ function RequestModal({
                     <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                     Guardando…
                   </span>
-                ) : 'Avisamé cuando aparezca una boleta'}
+                ) : 'Avísame cuando aparezca una boleta'}
               </button>
 
               <div className="flex items-center justify-center gap-4 pt-1">

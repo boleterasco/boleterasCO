@@ -51,6 +51,9 @@ export default function DashboardPage() {
   const [loading,  setLoading]  = useState(true)
   const [userName, setUserName] = useState<string | null>(null)
   const [toast,    setToast]    = useState<string | null>(null)
+  const [confirmingListing, setConfirmingListing] = useState<string | null>(null)
+  const [confirmingRequest, setConfirmingRequest] = useState<string | null>(null)
+  const [cancelling,        setCancelling]        = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -97,6 +100,46 @@ export default function DashboardPage() {
   async function handleReportMatch(matchId: string) {
     void matchId
     showToast('Reporte recibido. Revisaremos el caso en 24h.')
+  }
+
+  async function cancelListing(id: string) {
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/listings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      })
+      if (res.ok) {
+        setListings(prev => prev.map(l => l.id === id ? { ...l, status: 'CANCELLED' as any } : l))
+        showToast('Publicación cancelada.')
+      } else {
+        showToast('No se pudo cancelar. Intenta de nuevo.')
+      }
+    } finally {
+      setCancelling(false)
+      setConfirmingListing(null)
+    }
+  }
+
+  async function cancelRequest(id: string) {
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/requests/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      })
+      if (res.ok) {
+        setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'CANCELLED' as any } : r))
+        showToast('Solicitud cancelada.')
+      } else {
+        showToast('No se pudo cancelar. Intenta de nuevo.')
+      }
+    } finally {
+      setCancelling(false)
+      setConfirmingRequest(null)
+    }
   }
 
   const pendingMatches = matches.filter(m => m.status === 'PENDING')
@@ -239,52 +282,98 @@ export default function DashboardPage() {
                       cta="Publicar boleta" href="/vender" />
                   ) : (
                     <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                      <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-5 px-5 py-3"
+                      <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto_32px] gap-x-5 px-5 py-3"
                         style={{ background: 'var(--ink-raised)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        {['Evento', 'Sección', 'Qty', 'Precio', 'Estado'].map(h => (
+                        {['Evento', 'Sección', 'Qty', 'Precio', 'Estado', ''].map(h => (
                           <span key={h} className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(237,233,223,0.25)' }}>{h}</span>
                         ))}
                       </div>
                       <div className="divide-y divide-white/[0.04]" style={{ background: 'var(--ink-mid)' }}>
                         {listings.map(listing => {
                           const st = STATUS_LISTING[listing.status] ?? { label: listing.status, color: 'rgba(237,233,223,0.30)' }
+                          const isConfirming = confirmingListing === listing.id
                           return (
                             <div key={listing.id}>
-                              {/* Mobile */}
-                              <div className="sm:hidden p-4 space-y-1.5">
-                                <div className="flex items-start justify-between gap-3">
-                                  <p className="text-[13px] font-semibold text-[#EDE9DF] truncate" style={{ fontFamily: 'var(--font-display)' }}>
-                                    {listing.event.name}
-                                  </p>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.color }} />
-                                    <span className="text-[10px] font-medium" style={{ color: 'rgba(237,233,223,0.40)' }}>{st.label}</span>
+                              {isConfirming ? (
+                                <div className="px-5 py-3.5 flex items-center justify-between gap-4"
+                                  style={{ background: 'rgba(248,113,113,0.06)', borderTop: '1px solid rgba(248,113,113,0.15)' }}>
+                                  <p className="text-[13px] text-[#EDE9DF]">¿Cancelar esta publicación?</p>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => cancelListing(listing.id)}
+                                      disabled={cancelling}
+                                      className="text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                      style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171', border: '1px solid rgba(248,113,113,0.25)' }}>
+                                      {cancelling ? '…' : 'Sí, cancelar'}
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmingListing(null)}
+                                      disabled={cancelling}
+                                      className="text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                      style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(237,233,223,0.55)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                      No
+                                    </button>
                                   </div>
                                 </div>
-                                <p className="text-[11px]" style={{ color: 'rgba(237,233,223,0.38)' }}>
-                                  {listing.section} · {listing.quantity} boleta{listing.quantity !== 1 ? 's' : ''} · <span style={{ color: '#C8A04A' }}>{formatCOP(listing.pricePerTicket)}</span>
-                                </p>
-                              </div>
-                              {/* Desktop */}
-                              <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-5 px-5 py-3.5 items-center">
-                                <div className="min-w-0">
-                                  <p className="text-[13px] font-semibold text-[#EDE9DF] truncate" style={{ fontFamily: 'var(--font-display)' }}>
-                                    {listing.event.name}
-                                  </p>
-                                  <p className="text-[11px] mt-0.5" style={{ color: 'rgba(237,233,223,0.35)' }}>
-                                    {listing.event.city} · {formatDate(listing.event.date)}
-                                  </p>
-                                </div>
-                                <span className="text-[12px] text-[#EDE9DF]/50 truncate max-w-[100px]">{listing.section}</span>
-                                <span className="text-[12px] text-[#EDE9DF] tabular-nums">{listing.quantity}</span>
-                                <span className="text-[13px] font-semibold tabular-nums" style={{ color: '#C8A04A', fontFamily: 'var(--font-display)' }}>
-                                  {formatCOP(listing.pricePerTicket)}
-                                </span>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.color }} />
-                                  <span className="text-[10px] font-medium" style={{ color: 'rgba(237,233,223,0.40)' }}>{st.label}</span>
-                                </div>
-                              </div>
+                              ) : (
+                                <>
+                                  {/* Mobile */}
+                                  <div className="sm:hidden p-4 space-y-1.5">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <p className="text-[13px] font-semibold text-[#EDE9DF] truncate" style={{ fontFamily: 'var(--font-display)' }}>
+                                        {listing.event.name}
+                                      </p>
+                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.color }} />
+                                        <span className="text-[10px] font-medium" style={{ color: 'rgba(237,233,223,0.40)' }}>{st.label}</span>
+                                        {listing.status === 'ACTIVE' && (
+                                          <button onClick={() => setConfirmingListing(listing.id)}
+                                            className="w-5 h-5 rounded flex items-center justify-center cursor-pointer transition-colors hover:bg-[rgba(248,113,113,0.15)]"
+                                            style={{ color: 'rgba(248,113,113,0.50)' }} title="Cancelar">
+                                            <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <p className="text-[11px]" style={{ color: 'rgba(237,233,223,0.38)' }}>
+                                      {listing.section} · {listing.quantity} boleta{listing.quantity !== 1 ? 's' : ''} · <span style={{ color: '#C8A04A' }}>{formatCOP(listing.pricePerTicket)}</span>
+                                    </p>
+                                  </div>
+                                  {/* Desktop */}
+                                  <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto_32px] gap-x-5 px-5 py-3.5 items-center">
+                                    <div className="min-w-0">
+                                      <p className="text-[13px] font-semibold text-[#EDE9DF] truncate" style={{ fontFamily: 'var(--font-display)' }}>
+                                        {listing.event.name}
+                                      </p>
+                                      <p className="text-[11px] mt-0.5" style={{ color: 'rgba(237,233,223,0.35)' }}>
+                                        {listing.event.city} · {formatDate(listing.event.date)}
+                                      </p>
+                                    </div>
+                                    <span className="text-[12px] text-[#EDE9DF]/50 truncate max-w-[100px]">{listing.section}</span>
+                                    <span className="text-[12px] text-[#EDE9DF] tabular-nums">{listing.quantity}</span>
+                                    <span className="text-[13px] font-semibold tabular-nums" style={{ color: '#C8A04A', fontFamily: 'var(--font-display)' }}>
+                                      {formatCOP(listing.pricePerTicket)}
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.color }} />
+                                      <span className="text-[10px] font-medium" style={{ color: 'rgba(237,233,223,0.40)' }}>{st.label}</span>
+                                    </div>
+                                    <div className="flex justify-end">
+                                      {listing.status === 'ACTIVE' && (
+                                        <button onClick={() => setConfirmingListing(listing.id)}
+                                          className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:bg-[rgba(248,113,113,0.15)]"
+                                          style={{ color: 'rgba(248,113,113,0.50)' }} title="Cancelar publicación">
+                                          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )
                         })}
@@ -311,22 +400,56 @@ export default function DashboardPage() {
                     <div className="space-y-2">
                       {requests.map(req => {
                         const st = STATUS_REQUEST[req.status] ?? { label: req.status, color: 'rgba(237,233,223,0.30)' }
+                        const isConfirming = confirmingRequest === req.id
                         return (
-                          <div key={req.id} className="rounded-xl p-4 flex items-center gap-4"
+                          <div key={req.id} className="rounded-xl overflow-hidden"
                             style={{ background: 'var(--ink-mid)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-semibold text-[#EDE9DF] truncate" style={{ fontFamily: 'var(--font-display)' }}>
-                                {req.event.name}
-                              </p>
-                              <p className="text-[11px] mt-0.5" style={{ color: 'rgba(237,233,223,0.38)' }}>
-                                {req.section ?? 'Cualquier sección'} · {req.quantity} boleta{req.quantity > 1 ? 's' : ''} · hasta{' '}
-                                <span style={{ color: '#C8A04A', fontWeight: 600 }}>{formatCOP(req.maxPrice)}</span>
-                              </p>
+                            <div className="p-4 flex items-center gap-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold text-[#EDE9DF] truncate" style={{ fontFamily: 'var(--font-display)' }}>
+                                  {req.event.name}
+                                </p>
+                                <p className="text-[11px] mt-0.5" style={{ color: 'rgba(237,233,223,0.38)' }}>
+                                  {req.section ?? 'Cualquier sección'} · {req.quantity} boleta{req.quantity > 1 ? 's' : ''} · hasta{' '}
+                                  <span style={{ color: '#C8A04A', fontWeight: 600 }}>{formatCOP(req.maxPrice)}</span>
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />
+                                <span className="text-[10px] font-medium" style={{ color: 'rgba(237,233,223,0.40)' }}>{st.label}</span>
+                                {req.status === 'OPEN' && (
+                                  <button onClick={() => setConfirmingRequest(req.id)}
+                                    className="w-6 h-6 rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:bg-[rgba(248,113,113,0.15)] ml-1"
+                                    style={{ color: 'rgba(248,113,113,0.50)' }} title="Cancelar solicitud">
+                                    <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />
-                              <span className="text-[10px] font-medium" style={{ color: 'rgba(237,233,223,0.40)' }}>{st.label}</span>
-                            </div>
+                            {isConfirming && (
+                              <div className="px-4 py-3 flex items-center justify-between gap-3 border-t"
+                                style={{ background: 'rgba(248,113,113,0.06)', borderColor: 'rgba(248,113,113,0.15)' }}>
+                                <p className="text-[12px] text-[#EDE9DF]">¿Cancelar esta solicitud?</p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => cancelRequest(req.id)}
+                                    disabled={cancelling}
+                                    className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                    style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171', border: '1px solid rgba(248,113,113,0.25)' }}>
+                                    {cancelling ? '…' : 'Sí, cancelar'}
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmingRequest(null)}
+                                    disabled={cancelling}
+                                    className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                    style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(237,233,223,0.55)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    No
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )
                       })}

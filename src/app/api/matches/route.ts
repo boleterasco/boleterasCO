@@ -60,6 +60,21 @@ export async function PATCH(req: Request) {
   const newStatus = statusMap[action]
   if (!newStatus) return NextResponse.json({ error: 'Acción inválida' }, { status: 400 })
 
+  // Verify the current user is a party to this match (buyer or seller)
+  const { data: matchRow } = await supabase
+    .from('matches')
+    .select('listing:listings(seller_id), request:requests(buyer_id)')
+    .eq('id', matchId)
+    .single()
+
+  if (!matchRow) return NextResponse.json({ error: 'Match no encontrado' }, { status: 404 })
+
+  const sellerId = (matchRow.listing as any)?.seller_id
+  const buyerId  = (matchRow.request as any)?.buyer_id
+  if (user.id !== sellerId && user.id !== buyerId) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  }
+
   const { error } = await supabase
     .from('matches')
     .update({ status: newStatus })

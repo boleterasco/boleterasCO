@@ -73,11 +73,11 @@ async function matchListingAgainstRequests(listingId: string) {
 
     await notifyBothParties(match.id, listing, request)
 
-    // Mark listing as matched after first successful match
-    await adminClient
-      .from('listings')
-      .update({ status: 'MATCHED' })
-      .eq('id', listingId)
+    // Mark both sides as matched
+    await Promise.all([
+      adminClient.from('listings').update({ status: 'MATCHED' }).eq('id', listingId),
+      adminClient.from('requests').update({ status: 'MATCHED' }).eq('id', request.id),
+    ])
 
     break // One match per listing
   }
@@ -140,10 +140,11 @@ async function matchRequestAgainstListings(requestId: string) {
 
     await notifyBothParties(match.id, listing, request)
 
-    await adminClient
-      .from('listings')
-      .update({ status: 'MATCHED' })
-      .eq('id', listing.id)
+    // Mark both sides as matched
+    await Promise.all([
+      adminClient.from('listings').update({ status: 'MATCHED' }).eq('id', listing.id),
+      adminClient.from('requests').update({ status: 'MATCHED' }).eq('id', requestId),
+    ])
 
     break // One match per request
   }

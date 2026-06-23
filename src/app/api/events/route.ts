@@ -6,6 +6,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('events')
     .select('*')
+    .eq('is_active', true)
     .order('date', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

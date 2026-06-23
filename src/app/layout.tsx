@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     locale: 'es_CO',
     type: 'website',
   },
-  themeColor: '#FFFFFF',
+  themeColor: '#09090E',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
