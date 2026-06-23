@@ -301,13 +301,40 @@ export default function Landing() {
         <div className="bg-[#111118] border-y border-white/[0.04]">
           <div className="max-w-6xl mx-auto px-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/[0.05]">
-              {[
-                { icon: '🔒', title: 'Vendedores verificados', desc: 'Cédula + selfie para publicar' },
-                { icon: '⚡', title: 'Match instantáneo', desc: 'WhatsApp + email en segundos' },
-                { icon: '💸', title: 'Sin comisión en Beta', desc: 'Publicar y buscar es gratis' },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} className="flex items-center gap-3 px-6 py-5">
-                  <span className="text-xl flex-shrink-0">{icon}</span>
+              {([
+                {
+                  icon: (
+                    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                    </svg>
+                  ),
+                  title: 'Vendedores verificados',
+                  desc: 'Cédula + selfie para publicar',
+                },
+                {
+                  icon: (
+                    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                    </svg>
+                  ),
+                  title: 'Match instantáneo',
+                  desc: 'WhatsApp + email en segundos',
+                },
+                {
+                  icon: (
+                    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                  ),
+                  title: 'Sin comisión en Beta',
+                  desc: 'Publicar y buscar es gratis',
+                },
+              ] as { icon: React.ReactNode; title: string; desc: string }[]).map(({ icon, title, desc }) => (
+                <div key={title} className="flex items-center gap-4 px-6 py-5">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(200,160,74,0.10)', color: '#C8A04A', border: '1px solid rgba(200,160,74,0.14)' }}>
+                    {icon}
+                  </div>
                   <div>
                     <p className="text-[13px] font-semibold text-[#EDE9DF]">{title}</p>
                     <p className="text-[12px] text-[#EDE9DF]/35 mt-0.5">{desc}</p>
