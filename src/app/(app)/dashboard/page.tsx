@@ -179,8 +179,21 @@ export default function DashboardPage() {
                 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px,5vw,48px)', letterSpacing: '-0.03em' }}>
                 {loading ? '·' : (userName ?? 'Dashboard')}
               </h1>
+              <Link href="/perfil" className="sm:hidden inline-flex items-center gap-1 mt-2 text-[11px] transition-colors hover:text-[#C8A04A]"
+                style={{ color: 'rgba(237,233,223,0.35)' }}>
+                <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Editar perfil
+              </Link>
             </div>
             <div className="flex gap-2 flex-shrink-0">
+              <Link href="/perfil"  className="btn-ghost !text-[13px] !px-4 !py-2.5 hidden sm:inline-flex" title="Editar perfil">
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Perfil
+              </Link>
               <Link href="/comprar" className="btn-outline !text-[13px] !px-4 !py-2.5 hidden sm:inline-flex">Buscar boleta</Link>
               <Link href="/vender"  className="btn-primary !text-[13px] !px-4 !py-2.5">+ Publicar</Link>
             </div>
