@@ -478,6 +478,39 @@ export default function DashboardPage() {
   )
 }
 
+/* ── MatchCountdown ── */
+function MatchCountdown({ expiresAt }: { expiresAt: string }) {
+  const [ms, setMs] = useState(() => new Date(expiresAt).getTime() - Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setMs(new Date(expiresAt).getTime() - Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [expiresAt])
+
+  if (ms <= 0) return (
+    <span className="text-[10px] font-semibold" style={{ color: '#F87171' }}>Tiempo agotado</span>
+  )
+
+  const totalSecs = Math.floor(ms / 1000)
+  const h = Math.floor(totalSecs / 3600)
+  const m = Math.floor((totalSecs % 3600) / 60)
+  const s = totalSecs % 60
+  const label = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`
+
+  const isUrgent   = ms < 30 * 60 * 1000       // < 30 min  → rojo
+  const isCritical = ms < 2 * 60 * 60 * 1000   // < 2h      → naranja
+  const color = isUrgent ? '#F87171' : isCritical ? '#FB923C' : 'rgba(237,233,223,0.40)'
+
+  return (
+    <span className="flex items-center gap-1 text-[10px] font-medium tabular-nums" style={{ color }}>
+      <svg aria-hidden="true" className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      {label}
+    </span>
+  )
+}
+
 /* ── MatchRow ── */
 function MatchRow({ match, role, onConfirm, onReport }: {
   match: Match & { userRole: 'BUYER' | 'SELLER' }
@@ -508,10 +541,13 @@ function MatchRow({ match, role, onConfirm, onReport }: {
           style={{ color: role === 'BUYER' ? '#C8A04A' : '#E0B560' }}>
           {role === 'BUYER' ? 'Comprando' : 'Vendiendo'}
         </span>
-        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full"
-          style={{ background: statusConfig.bg, color: statusConfig.color, border: `1px solid ${statusConfig.border}` }}>
-          {statusConfig.label}
-        </span>
+        <div className="flex items-center gap-2.5">
+          {isPending && match.expiresAt && <MatchCountdown expiresAt={String(match.expiresAt)} />}
+          <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full"
+            style={{ background: statusConfig.bg, color: statusConfig.color, border: `1px solid ${statusConfig.border}` }}>
+            {statusConfig.label}
+          </span>
+        </div>
       </div>
 
       <div className="p-5 space-y-4">
