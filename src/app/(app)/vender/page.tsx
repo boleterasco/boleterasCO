@@ -94,16 +94,26 @@ function VenderContent() {
 
           {/* Header */}
           <div className="mb-10">
-            <Link href="/eventos" className="inline-flex items-center gap-2 text-label text-fg-muted hover:text-fg transition-colors duration-150 mb-5" aria-label="Volver a eventos">
+            <Link href="/eventos"
+              className="inline-flex items-center gap-1.5 mb-6 text-[12px] transition-colors hover:text-fg"
+              style={{ color: 'rgba(237,233,223,0.35)' }}
+              aria-label="Volver a eventos">
               <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="square" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <path strokeLinecap="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Volver
+              Todos los eventos
             </Link>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-3 flex items-center gap-2"
+              style={{ color: 'rgba(200,160,74,0.65)' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C8A04A] animate-pulse" />
+              Menos de 2 minutos · Matching automático
+            </p>
             <h1 className="font-display font-800 text-fg leading-none" style={{ fontSize: 'clamp(36px, 6vw, 64px)', letterSpacing: '-0.04em' }}>
               PUBLICA<br /><span className="text-accent">TU BOLETA</span>
             </h1>
-            <p className="mt-3 text-sm text-fg-muted">Tarda menos de 2 minutos. Matching automático al publicar.</p>
+            <p className="mt-3 text-[13px] text-fg-muted leading-relaxed max-w-sm">
+              Publicá tus boletas y el sistema busca compradores automáticamente. Te avisamos por WhatsApp cuando haya match.
+            </p>
           </div>
 
           {/* Step indicator */}

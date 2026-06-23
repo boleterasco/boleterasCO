@@ -125,13 +125,16 @@ export default function DashboardPage() {
         <div className="max-w-4xl mx-auto px-4 py-10">
 
           {/* Header */}
-          <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+          <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(237,233,223,0.28)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-2"
+                style={{ color: 'rgba(200,160,74,0.65)' }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#C8A04A]" />
                 Mi cuenta
               </p>
-              <h1 className="text-[26px] font-bold leading-tight tracking-tight text-[#EDE9DF]" style={{ fontFamily: 'var(--font-display)' }}>
-                {loading ? '...' : (userName ?? 'Dashboard')}
+              <h1 className="font-bold leading-none tracking-tight text-[#EDE9DF]"
+                style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px,5vw,48px)', letterSpacing: '-0.03em' }}>
+                {loading ? '·' : (userName ?? 'Dashboard')}
               </h1>
             </div>
             <div className="flex gap-2 flex-shrink-0">

@@ -339,13 +339,21 @@
   .border-base  { border-color: var(--ink-border); }
   .border-mid   { border-color: var(--ink-border-mid); }
 
-  /* Semantic aliases used in vender/page and other pages */
-  .text-fg       { color: var(--champagne); }
-  .text-fg-muted { color: var(--champagne-mid); }
-  .text-fg-subtle{ color: var(--champagne-sub); }
-  .text-accent-fg{ color: var(--accent-fg); }
-  .bg-bg-surface { background: var(--bg-surface); }
-  .border-border { border-color: var(--border); }
+  /* Semantic aliases used across pages */
+  .text-fg        { color: var(--champagne); }
+  .text-fg-muted  { color: var(--champagne-mid); }
+  .text-fg-subtle { color: var(--champagne-sub); }
+  .text-accent-fg { color: var(--accent-fg); }
+  .bg-bg-surface  { background: var(--bg-surface); }
+  .bg-accent      { background: var(--gold); }
+  .border-border  { border-color: var(--border); }
+  .border-accent  { border-color: var(--gold); }
+
+  /* Hover variants for custom utilities */
+  .hover\:text-fg:hover       { color: var(--champagne); }
+  .hover\:text-accent:hover   { color: var(--gold); }
+  .hover\:bg-accent:hover     { background: var(--gold); }
+  .hover\:border-accent:hover { border-color: var(--gold); }
 
   .nums {
     font-family: var(--font-mono);
