@@ -9,15 +9,19 @@ interface MatchCardProps {
   onReport?: (id: string) => void
 }
 
-const statusConfig = {
-  PENDING:  { label: 'Esperando confirmación', color: 'text-yellow' },
-  ACCEPTED: { label: 'Confirmado',             color: 'text-accent' },
-  REJECTED: { label: 'Rechazado',              color: 'text-fg-muted' },
-  EXPIRED:  { label: 'Expirado',               color: 'text-fg-subtle' },
-} as const
+const statusConfig: Record<string, { label: string; color: string }> = {
+  PENDING:     { label: 'Esperando pago',         color: 'text-yellow' },
+  PAID:        { label: 'Pagado',                 color: 'text-accent' },
+  TRANSFERRED: { label: 'Boleta enviada',         color: 'text-accent' },
+  COMPLETED:   { label: 'Completado',             color: 'text-accent' },
+  DISPUTED:    { label: 'En disputa',             color: 'text-red-400' },
+  ACCEPTED:    { label: 'Confirmado',             color: 'text-accent' },
+  REJECTED:    { label: 'Rechazado',              color: 'text-fg-muted' },
+  EXPIRED:     { label: 'Expirado',               color: 'text-fg-subtle' },
+}
 
 export default function MatchCard({ match, role, onConfirm, onReport }: MatchCardProps) {
-  const status = statusConfig[match.status]
+  const status = statusConfig[match.status] ?? { label: match.status, color: 'text-fg-muted' }
   const other  = role === 'BUYER' ? match.listing.seller : match.request.buyer
   const isPending = match.status === 'PENDING'
 

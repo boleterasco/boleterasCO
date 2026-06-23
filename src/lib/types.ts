@@ -1,7 +1,7 @@
 export type EventCategory = 'CONCIERTO' | 'MUNDIAL_2026' | 'FESTIVAL' | 'TEATRO' | 'DEPORTES' | 'OTRO'
 export type ListingStatus  = 'ACTIVE' | 'MATCHED' | 'SOLD' | 'CANCELLED'
 export type RequestStatus  = 'OPEN' | 'MATCHED' | 'FULFILLED' | 'EXPIRED' | 'CANCELLED'
-export type MatchStatus    = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+export type MatchStatus    = 'PENDING' | 'PAID' | 'TRANSFERRED' | 'COMPLETED' | 'DISPUTED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
 
 export interface User {
   id: string
@@ -72,4 +72,6 @@ export interface Match {
   notifiedAt?: Date | string | null
   expiresAt: Date | string
   createdAt: Date | string
+  sellerDeadline?: string | null
+  paymentAmount?: number | null
 }

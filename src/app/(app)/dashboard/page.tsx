@@ -30,7 +30,7 @@ function mapRequest(db: any): BuyRequest {
 function mapMatch(db: any, userId: string): Match & { userRole: 'BUYER' | 'SELLER' } {
   const listing = mapListing(db.listing)
   const request = mapRequest(db.request)
-  return { id: db.id, listingId: db.listing_id, requestId: db.request_id, status: db.status, expiresAt: db.expires_at, createdAt: db.created_at, notifiedAt: db.notified_at, listing, request, userRole: listing.sellerId === userId ? 'SELLER' : 'BUYER' } as any
+  return { id: db.id, listingId: db.listing_id, requestId: db.request_id, status: db.status, expiresAt: db.expires_at, createdAt: db.created_at, notifiedAt: db.notified_at, listing, request, userRole: listing.sellerId === userId ? 'SELLER' : 'BUYER', sellerDeadline: db.seller_deadline ?? null, paymentAmount: db.payment_amount ?? null } as any
 }
 
 const STATUS_LISTING: Record<string, { label: string; color: string }> = {
@@ -101,6 +101,10 @@ export default function DashboardPage() {
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(null), 3500)
+  }
+
+  function updateMatchStatus(matchId: string, newStatus: string) {
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: newStatus as any } : m))
   }
 
   async function handleConfirmMatch(matchId: string) {
@@ -294,6 +298,7 @@ export default function DashboardPage() {
                           onConfirm={handleConfirmMatch}
                           onReport={handleReportMatch}
                           myRating={myRatings.find(r => r.match_id === match.id) ?? null}
+                          onStatusChange={(s) => updateMatchStatus(match.id, s)}
                         />
                       ))}
                     </div>
@@ -554,12 +559,21 @@ function Stars({ value, size = 14 }: { value: number; size?: number }) {
   )
 }
 
-function MatchRow({ match, role, onConfirm, onReport, myRating }: {
+function fmt(n: number) {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+}
+function calcTotal(ticketPrice: number) {
+  const total = Math.ceil((ticketPrice * 1.12 + 900) / 0.9705)
+  return { total, fee: total - ticketPrice }
+}
+
+function MatchRow({ match, role, onConfirm, onReport, myRating, onStatusChange }: {
   match: Match & { userRole: 'BUYER' | 'SELLER' }
   role: 'BUYER' | 'SELLER'
   onConfirm: (id: string) => void
   onReport:  (id: string) => void
   myRating:  { match_id: string; stars: number } | null
+  onStatusChange: (status: string) => void
 }) {
   const [isExpired,      setIsExpired]      = useState(() =>
     match.expiresAt ? new Date(String(match.expiresAt)) <= new Date() : false
@@ -569,10 +583,47 @@ function MatchRow({ match, role, onConfirm, onReport, myRating }: {
   const [ratingState,   setRatingState]   = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [ratingError,   setRatingError]   = useState('')
   const [localRating,   setLocalRating]   = useState<{ stars: number } | null>(null)
+  const [paying,        setPaying]        = useState(false)
+  const [payError,      setPayError]      = useState('')
+  const [actioning,     setActioning]     = useState(false)
 
-  const other      = role === 'BUYER' ? match.listing?.seller : match.request?.buyer
-  const isPending  = match.status === 'PENDING'
-  const isAccepted = match.status === 'ACCEPTED'
+  const other         = role === 'BUYER' ? match.listing?.seller : match.request?.buyer
+  const isPending     = match.status === 'PENDING'
+  const isPaid        = match.status === 'PAID'
+  const isTransferred = match.status === 'TRANSFERRED'
+  const isCompleted   = match.status === 'COMPLETED'
+  const isDisputed    = match.status === 'DISPUTED'
+  const isAccepted    = match.status === 'ACCEPTED'
+  const showContact   = isPaid || isTransferred || isCompleted || isDisputed || isAccepted
+
+  const ticketPrice = match.listing?.pricePerTicket ?? 0
+  const { total: buyerTotal, fee: serviceFee } = calcTotal(ticketPrice)
+
+  async function handlePay() {
+    setPaying(true); setPayError('')
+    try {
+      const res = await fetch('/api/payments/create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: match.id }),
+      })
+      const data = await res.json()
+      if (res.ok) { window.location.href = data.url }
+      else { setPayError(data.error ?? 'Error al generar el pago'); setPaying(false) }
+    } catch { setPayError('Error de conexión'); setPaying(false) }
+  }
+
+  async function handleAction(action: string, nextStatus: string) {
+    setActioning(true)
+    try {
+      const res = await fetch('/api/matches', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: match.id, action }),
+      })
+      if (res.ok) onStatusChange(nextStatus)
+      else { const d = await res.json().catch(() => ({})); setPayError(d.error ?? 'Error') }
+    } catch { setPayError('Error de conexión') }
+    finally { setActioning(false) }
+  }
 
   async function submitRating() {
     if (!ratingStars) return
@@ -601,12 +652,17 @@ function MatchRow({ match, role, onConfirm, onReport, myRating }: {
   const alreadyRated = myRating ?? localRating
   const event      = match.listing?.event
 
-  const statusConfig = {
-    PENDING:  { label: 'Pendiente',  color: '#E0B560', bg: 'rgba(224,181,96,0.10)',  border: 'rgba(224,181,96,0.20)' },
-    ACCEPTED: { label: 'Confirmado', color: '#4ADE80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.18)' },
-    REJECTED: { label: 'Rechazado',  color: 'rgba(237,233,223,0.30)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)' },
-    EXPIRED:  { label: 'Expirado',   color: 'rgba(237,233,223,0.20)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.06)' },
-  }[match.status] ?? { label: match.status, color: 'rgba(237,233,223,0.30)', bg: 'transparent', border: 'rgba(255,255,255,0.06)' }
+  const statusConfig = ({
+    PENDING:     { label: 'Pendiente pago', color: '#E0B560', bg: 'rgba(224,181,96,0.10)',  border: 'rgba(224,181,96,0.20)' },
+    PAID:        { label: 'Pagado',         color: '#60A5FA', bg: 'rgba(96,165,250,0.10)',  border: 'rgba(96,165,250,0.20)' },
+    TRANSFERRED: { label: 'En camino',      color: '#C084FC', bg: 'rgba(192,132,252,0.10)', border: 'rgba(192,132,252,0.20)' },
+    COMPLETED:   { label: 'Completado',     color: '#4ADE80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.18)' },
+    DISPUTED:    { label: 'En disputa',     color: '#F87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.18)' },
+    ACCEPTED:    { label: 'Confirmado',     color: '#4ADE80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.18)' },
+    REJECTED:    { label: 'Rechazado',      color: 'rgba(237,233,223,0.30)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)' },
+    EXPIRED:     { label: 'Expirado',       color: 'rgba(237,233,223,0.20)', bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.06)' },
+  } as Record<string, { label: string; color: string; bg: string; border: string }>)[match.status]
+    ?? { label: match.status, color: 'rgba(237,233,223,0.30)', bg: 'transparent', border: 'rgba(255,255,255,0.06)' }
 
   return (
     <article
@@ -647,8 +703,8 @@ function MatchRow({ match, role, onConfirm, onReport, myRating }: {
           </div>
         </div>
 
-        {/* Contact */}
-        {other && (
+        {/* Contact — hidden until payment confirmed */}
+        {other && showContact && (
           <div className="rounded-xl p-4"
             style={{ background: 'rgba(200,160,74,0.05)', border: '1px solid rgba(200,160,74,0.15)' }}>
             <p className="text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: 'rgba(200,160,74,0.55)' }}>
@@ -687,32 +743,142 @@ function MatchRow({ match, role, onConfirm, onReport, myRating }: {
           </div>
         )}
 
-        {/* Actions */}
-        {isPending && !isExpired && (
-          <div className="flex gap-2.5 pt-1">
-            <button onClick={() => onConfirm(match.id)}
-              className="btn-primary flex-1 justify-center !text-[13px] !py-3 cursor-pointer">
-              Confirmar cierre
+        {/* ── PENDING: buyer pays ── */}
+        {isPending && role === 'BUYER' && !isExpired && (
+          <div className="rounded-xl p-4 space-y-3"
+            style={{ background: 'rgba(200,160,74,0.06)', border: '1px solid rgba(200,160,74,0.20)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'rgba(200,160,74,0.65)' }}>
+              Resumen del pago
+            </p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[13px]">
+                <span style={{ color: 'rgba(237,233,223,0.55)' }}>Precio de la boleta</span>
+                <span className="font-medium text-[#EDE9DF]">{fmt(ticketPrice)}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span style={{ color: 'rgba(237,233,223,0.55)' }}>Tarifa de servicio</span>
+                <span className="font-medium text-[#EDE9DF]">{fmt(serviceFee)}</span>
+              </div>
+              <div className="flex justify-between text-[14px] font-bold pt-1.5 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                <span className="text-[#EDE9DF]">Total</span>
+                <span style={{ color: '#C8A04A', fontFamily: 'var(--font-display)' }}>{fmt(buyerTotal)}</span>
+              </div>
+            </div>
+            {payError && <p className="text-[11px]" style={{ color: '#F87171' }}>{payError}</p>}
+            <button onClick={handlePay} disabled={paying}
+              className="btn-primary w-full justify-center !py-3 !text-[13px] disabled:opacity-50 cursor-pointer">
+              {paying
+                ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : 'Pagar ahora →'}
             </button>
-            <button onClick={() => onReport(match.id)}
-              className="btn-ghost !text-[12px] px-4 py-3 rounded-xl border cursor-pointer"
-              style={{ borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(237,233,223,0.40)' }}>
-              Reportar
-            </button>
+            <p className="text-[10px] text-center" style={{ color: 'rgba(237,233,223,0.25)' }}>
+              Tu dinero queda retenido hasta que recibas la boleta
+            </p>
           </div>
         )}
+
+        {/* ── PENDING: seller waits ── */}
+        {isPending && role === 'SELLER' && !isExpired && (
+          <p className="text-[12px] flex items-center gap-2" style={{ color: 'rgba(237,233,223,0.40)' }}>
+            <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            Esperando pago del comprador…
+          </p>
+        )}
+
+        {/* ── PENDING expired ── */}
         {isPending && isExpired && (
           <p className="text-[11px] pt-1" style={{ color: 'rgba(237,233,223,0.28)' }}>
             Este match expiró. Ambas partes vuelven a estar disponibles en el sistema.
           </p>
         )}
-        {isAccepted && (
+
+        {/* ── PAID: seller transfers ── */}
+        {isPaid && role === 'SELLER' && (
+          <div className="space-y-3">
+            <div className="rounded-xl p-4" style={{ background: 'rgba(96,165,250,0.07)', border: '1px solid rgba(96,165,250,0.20)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(96,165,250,0.70)' }}>Acción requerida</p>
+              <p className="text-[13px] text-[#EDE9DF] leading-relaxed">
+                El pago fue confirmado. Transfiere la boleta al email del comprador y luego marca la transferencia aquí.
+              </p>
+              {match.sellerDeadline && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="#F87171" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <MatchCountdown expiresAt={match.sellerDeadline} onExpire={() => {}} />
+                  <span className="text-[10px]" style={{ color: 'rgba(237,233,223,0.35)' }}>para transferir</span>
+                </div>
+              )}
+            </div>
+            {payError && <p className="text-[11px]" style={{ color: '#F87171' }}>{payError}</p>}
+            <button onClick={() => handleAction('transfer', 'TRANSFERRED')} disabled={actioning}
+              className="btn-primary w-full justify-center !py-3 !text-[13px] disabled:opacity-50 cursor-pointer">
+              {actioning ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : 'Marcar como transferida'}
+            </button>
+          </div>
+        )}
+
+        {/* ── PAID: buyer waits ── */}
+        {isPaid && role === 'BUYER' && (
+          <div className="space-y-2.5">
+            <p className="text-[12px] flex items-center gap-2" style={{ color: 'rgba(237,233,223,0.45)' }}>
+              <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              El vendedor está preparando tu boleta…
+            </p>
+            <button onClick={() => handleAction('dispute', 'DISPUTED')} disabled={actioning}
+              className="text-[11px] font-medium cursor-pointer transition-colors hover:text-[#F87171]"
+              style={{ color: 'rgba(248,113,113,0.50)' }}>
+              Reportar problema
+            </button>
+          </div>
+        )}
+
+        {/* ── TRANSFERRED: buyer confirms ── */}
+        {isTransferred && role === 'BUYER' && (
+          <div className="space-y-2.5">
+            <p className="text-[12px] text-[#EDE9DF]">¿Recibiste la boleta en tu correo?</p>
+            {payError && <p className="text-[11px]" style={{ color: '#F87171' }}>{payError}</p>}
+            <div className="flex gap-2.5">
+              <button onClick={() => handleAction('confirm_receipt', 'COMPLETED')} disabled={actioning}
+                className="btn-primary flex-1 justify-center !py-3 !text-[13px] disabled:opacity-50 cursor-pointer">
+                {actioning ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : 'Sí, confirmar recepción'}
+              </button>
+              <button onClick={() => handleAction('dispute', 'DISPUTED')} disabled={actioning}
+                className="btn-ghost !text-[12px] px-4 py-3 rounded-xl border cursor-pointer disabled:opacity-50"
+                style={{ borderColor: 'rgba(248,113,113,0.25)', color: '#F87171' }}>
+                Reportar
+              </button>
+            </div>
+            <p className="text-[10px]" style={{ color: 'rgba(237,233,223,0.25)' }}>
+              Si no confirmas en 24h el pago se libera automáticamente al vendedor.
+            </p>
+          </div>
+        )}
+
+        {/* ── TRANSFERRED: seller waits ── */}
+        {isTransferred && role === 'SELLER' && (
+          <p className="text-[12px] flex items-center gap-2" style={{ color: 'rgba(237,233,223,0.40)' }}>
+            <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            Esperando confirmación del comprador…
+          </p>
+        )}
+
+        {/* ── DISPUTED ── */}
+        {isDisputed && (
+          <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.20)' }}>
+            <p className="text-[12px] font-semibold" style={{ color: '#F87171' }}>Disputa abierta</p>
+            <p className="text-[11px] mt-1" style={{ color: 'rgba(237,233,223,0.40)' }}>
+              Tu dinero está retenido. Te contactaremos en menos de 24h.
+            </p>
+          </div>
+        )}
+        {(isAccepted || isCompleted) && (
           <div className="space-y-3 pt-1">
             <p className="text-[12px] flex items-center gap-1.5" style={{ color: 'rgba(74,222,128,0.70)' }}>
               <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
-              Negocio confirmado
+              {isCompleted ? 'Transacción completada' : 'Negocio confirmado'}
             </p>
 
             {alreadyRated ? (

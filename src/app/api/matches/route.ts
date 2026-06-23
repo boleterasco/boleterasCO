@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
+import { sendTransferredEmail, sendCompletedEmail, sendDisputeEmail } from '@/lib/notifications'
 
 export async function GET() {
   const supabase = await createClient()
@@ -23,6 +25,7 @@ export async function GET() {
     .from('matches')
     .select(`
       id, listing_id, request_id, status, expires_at, created_at, notified_at,
+      seller_deadline, payment_amount,
       listing:listings(
         id, seller_id, event_id, section, quantity, price_per_ticket, notes, status, created_at,
         seller:profiles(full_name, phone, whatsapp, rating_avg, rating_count),
@@ -56,14 +59,13 @@ export async function PATCH(req: Request) {
   const { matchId, action } = await req.json()
   if (!matchId || !action) return NextResponse.json({ error: 'matchId y action requeridos' }, { status: 400 })
 
-  const statusMap: Record<string, string> = { accept: 'ACCEPTED', reject: 'REJECTED' }
-  const newStatus = statusMap[action]
-  if (!newStatus) return NextResponse.json({ error: 'Acción inválida' }, { status: 400 })
-
-  // Verify the current user is a party to this match (buyer or seller)
-  const { data: matchRow } = await supabase
+  const { data: matchRow } = await adminClient
     .from('matches')
-    .select('listing:listings(seller_id), request:requests(buyer_id)')
+    .select(`
+      id, status,
+      listing:listings(seller_id, price_per_ticket, seller:profiles(full_name), event:events(name, date, city)),
+      request:requests(buyer_id, buyer:profiles(full_name))
+    `)
     .eq('id', matchId)
     .single()
 
@@ -75,11 +77,82 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }
 
-  const { error } = await supabase
-    .from('matches')
-    .update({ status: newStatus })
-    .eq('id', matchId)
+  const ev     = (matchRow.listing as any)?.event ?? {}
+  const seller = (matchRow.listing as any)?.seller ?? {}
+  const buyer  = (matchRow.request as any)?.buyer  ?? {}
+  const price  = (matchRow.listing as any)?.price_per_ticket ?? 0
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  // ── accept / reject (legacy flow) ──
+  if (action === 'accept' || action === 'reject') {
+    const newStatus = action === 'accept' ? 'ACCEPTED' : 'REJECTED'
+    const { error } = await adminClient.from('matches').update({ status: newStatus }).eq('id', matchId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  // ── transfer (seller marks ticket as sent) ──
+  if (action === 'transfer') {
+    if (user.id !== sellerId)      return NextResponse.json({ error: 'Solo el vendedor puede marcar la transferencia' }, { status: 403 })
+    if (matchRow.status !== 'PAID') return NextResponse.json({ error: 'El match no está en estado PAID' }, { status: 400 })
+
+    await adminClient.from('matches')
+      .update({ status: 'TRANSFERRED', transferred_at: new Date().toISOString() })
+      .eq('id', matchId)
+
+    const { data: buyerAuth }  = await adminClient.auth.admin.getUserById(buyerId)
+    await sendTransferredEmail(
+      { email: buyerAuth?.user?.email ?? '', name: buyer.full_name ?? 'Comprador' },
+      { name: ev.name, date: ev.date, city: ev.city },
+      matchId,
+    )
+    return NextResponse.json({ ok: true })
+  }
+
+  // ── confirm_receipt (buyer confirms ticket received) ──
+  if (action === 'confirm_receipt') {
+    if (user.id !== buyerId)                return NextResponse.json({ error: 'Solo el comprador puede confirmar' }, { status: 403 })
+    if (matchRow.status !== 'TRANSFERRED')  return NextResponse.json({ error: 'El vendedor aún no marcó la transferencia' }, { status: 400 })
+
+    await adminClient.from('matches')
+      .update({ status: 'COMPLETED', completed_at: new Date().toISOString() })
+      .eq('id', matchId)
+
+    const [{ data: sellerAuth }, { data: buyerAuth }] = await Promise.all([
+      adminClient.auth.admin.getUserById(sellerId),
+      adminClient.auth.admin.getUserById(buyerId),
+    ])
+    await sendCompletedEmail(
+      { email: sellerAuth?.user?.email ?? '', name: seller.full_name ?? 'Vendedor' },
+      { email: buyerAuth?.user?.email  ?? '', name: buyer.full_name  ?? 'Comprador' },
+      { name: ev.name, date: ev.date, city: ev.city },
+      price,
+    )
+    return NextResponse.json({ ok: true })
+  }
+
+  // ── dispute (buyer reports problem) ──
+  if (action === 'dispute') {
+    if (user.id !== buyerId) return NextResponse.json({ error: 'Solo el comprador puede reportar' }, { status: 403 })
+    if (!['PAID','TRANSFERRED'].includes(matchRow.status)) {
+      return NextResponse.json({ error: 'No se puede disputar en este estado' }, { status: 400 })
+    }
+
+    await adminClient.from('matches')
+      .update({ status: 'DISPUTED', disputed_at: new Date().toISOString() })
+      .eq('id', matchId)
+
+    const [{ data: sellerAuth }, { data: buyerAuth }] = await Promise.all([
+      adminClient.auth.admin.getUserById(sellerId),
+      adminClient.auth.admin.getUserById(buyerId),
+    ])
+    await sendDisputeEmail(
+      { email: sellerAuth?.user?.email ?? '', name: seller.full_name ?? 'Vendedor' },
+      { email: buyerAuth?.user?.email  ?? '', name: buyer.full_name  ?? 'Comprador' },
+      { name: ev.name, date: ev.date, city: ev.city },
+      matchId,
+    )
+    return NextResponse.json({ ok: true })
+  }
+
+  return NextResponse.json({ error: 'Acción inválida' }, { status: 400 })
 }

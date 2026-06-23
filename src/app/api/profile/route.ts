@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await adminClient
     .from('profiles')
-    .select('id, full_name, phone, whatsapp, verified_level, rating_avg, rating_count, created_at')
+    .select('id, full_name, phone, whatsapp, verified_level, rating_avg, rating_count, created_at, payout_method, payout_phone, payout_bank, payout_account, payout_holder')
     .eq('id', user.id)
     .single()
 
@@ -31,6 +31,11 @@ export async function PATCH(req: Request) {
     updates.phone    = cleaned
     updates.whatsapp = cleaned
   }
+  if (typeof body.payout_method  === 'string') updates.payout_method  = body.payout_method
+  if (typeof body.payout_phone   === 'string') updates.payout_phone   = body.payout_phone.trim()
+  if (typeof body.payout_bank    === 'string') updates.payout_bank    = body.payout_bank.trim()
+  if (typeof body.payout_account === 'string') updates.payout_account = body.payout_account.trim()
+  if (typeof body.payout_holder  === 'string') updates.payout_holder  = body.payout_holder.trim()
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Sin cambios' }, { status: 400 })

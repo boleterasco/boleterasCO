@@ -14,6 +14,11 @@ type Profile = {
   rating_avg: number | null
   rating_count: number
   created_at: string
+  payout_method: 'nequi' | 'daviplata' | 'bank' | null
+  payout_phone: string | null
+  payout_bank: string | null
+  payout_account: string | null
+  payout_holder: string | null
 }
 
 export default function PerfilPage() {
@@ -23,7 +28,11 @@ export default function PerfilPage() {
   const [saving,    setSaving]    = useState(false)
   const [success,   setSuccess]   = useState(false)
   const [error,     setError]     = useState('')
-  const [form,      setForm]      = useState({ full_name: '', phone: '' })
+  const [form, setForm] = useState({
+    full_name: '', phone: '',
+    payout_method: 'nequi' as 'nequi'|'daviplata'|'bank',
+    payout_phone: '', payout_bank: '', payout_account: '', payout_holder: '',
+  })
 
   useEffect(() => {
     fetch('/api/profile')
@@ -35,8 +44,13 @@ export default function PerfilPage() {
         if (!data) return
         setProfile(data)
         setForm({
-          full_name: data.full_name ?? '',
-          phone:     data.whatsapp ?? data.phone ?? '',
+          full_name:      data.full_name ?? '',
+          phone:          data.whatsapp ?? data.phone ?? '',
+          payout_method:  (data.payout_method as 'nequi'|'daviplata'|'bank') ?? 'nequi',
+          payout_phone:   data.payout_phone ?? '',
+          payout_bank:    data.payout_bank ?? '',
+          payout_account: data.payout_account ?? '',
+          payout_holder:  data.payout_holder ?? '',
         })
         setLoading(false)
       })
@@ -68,7 +82,15 @@ export default function PerfilPage() {
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: form.full_name, phone: form.phone }),
+        body: JSON.stringify({
+          full_name:      form.full_name,
+          phone:          form.phone,
+          payout_method:  form.payout_method,
+          payout_phone:   form.payout_phone,
+          payout_bank:    form.payout_bank,
+          payout_account: form.payout_account,
+          payout_holder:  form.payout_holder,
+        }),
       })
       if (res.ok) {
         const updated = await res.json()
@@ -87,8 +109,13 @@ export default function PerfilPage() {
   }
 
   const isDirty = profile && (
-    form.full_name !== (profile.full_name ?? '') ||
-    form.phone     !== (profile.whatsapp ?? profile.phone ?? '')
+    form.full_name      !== (profile.full_name ?? '') ||
+    form.phone          !== (profile.whatsapp ?? profile.phone ?? '') ||
+    form.payout_method  !== (profile.payout_method ?? 'nequi') ||
+    form.payout_phone   !== (profile.payout_phone ?? '') ||
+    form.payout_bank    !== (profile.payout_bank ?? '') ||
+    form.payout_account !== (profile.payout_account ?? '') ||
+    form.payout_holder  !== (profile.payout_holder ?? '')
   )
 
   return (
@@ -182,6 +209,44 @@ export default function PerfilPage() {
                     </svg>
                     Sin teléfono — tus matches no podrán contactarte
                   </p>
+                )}
+              </div>
+
+              {/* Payout */}
+              <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(200,160,74,0.05)', border: '1px solid rgba(200,160,74,0.15)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'rgba(200,160,74,0.65)' }}>
+                  ¿Cómo quieres recibir tu dinero?
+                </p>
+                <div className="flex gap-2">
+                  {(['nequi','daviplata','bank'] as const).map(m => (
+                    <button key={m} type="button"
+                      onClick={() => { setForm(f => ({ ...f, payout_method: m })); setSuccess(false); setError('') }}
+                      className="flex-1 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors"
+                      style={form.payout_method === m
+                        ? { background: 'rgba(200,160,74,0.20)', color: '#C8A04A', border: '1px solid rgba(200,160,74,0.35)' }
+                        : { background: 'rgba(255,255,255,0.04)', color: 'rgba(237,233,223,0.45)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      {m === 'nequi' ? 'Nequi' : m === 'daviplata' ? 'Daviplata' : 'Banco'}
+                    </button>
+                  ))}
+                </div>
+                {(form.payout_method === 'nequi' || form.payout_method === 'daviplata') && (
+                  <input type="tel" placeholder="Número de celular" maxLength={10}
+                    value={form.payout_phone}
+                    onChange={e => { setForm(f => ({ ...f, payout_phone: e.target.value })); setSuccess(false) }}
+                    className="input-field w-full !text-[13px]" />
+                )}
+                {form.payout_method === 'bank' && (
+                  <div className="space-y-2">
+                    <input type="text" placeholder="Titular de la cuenta" value={form.payout_holder}
+                      onChange={e => { setForm(f => ({ ...f, payout_holder: e.target.value })); setSuccess(false) }}
+                      className="input-field w-full !text-[13px]" />
+                    <input type="text" placeholder="Banco (ej. Bancolombia)" value={form.payout_bank}
+                      onChange={e => { setForm(f => ({ ...f, payout_bank: e.target.value })); setSuccess(false) }}
+                      className="input-field w-full !text-[13px]" />
+                    <input type="text" placeholder="Número de cuenta" value={form.payout_account}
+                      onChange={e => { setForm(f => ({ ...f, payout_account: e.target.value })); setSuccess(false) }}
+                      className="input-field w-full !text-[13px]" />
+                  </div>
                 )}
               </div>
 

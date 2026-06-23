@@ -219,7 +219,183 @@ export async function sendRequestConfirmationEmail(
 }
 
 /* ══════════════════════════════════════════
-   5. WhatsApp via Twilio
+   5. PAGO CONFIRMADO → vendedor: transfiere / comprador: espera
+══════════════════════════════════════════ */
+interface PaymentInfo {
+  seller:        { email: string; name: string; phone: string | null }
+  buyer:         { email: string; name: string }
+  event:         EventInfo
+  price:         number
+  matchId:       string
+  sellerDeadline: string
+}
+
+export async function sendPaymentConfirmedEmail(info: PaymentInfo) {
+  const resend = getResend()
+  if (!resend) return
+  const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+  const deadline = new Date(info.sellerDeadline).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })
+
+  await Promise.allSettled([
+    resend.emails.send({
+      from:    FROM,
+      to:      info.seller.email,
+      subject: `💰 Pago confirmado — transfiere la boleta antes de las ${deadline}`,
+      html:    base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">¡El comprador pagó! 💰</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          Tienes <strong style="color:#C8A04A">4 horas</strong> para transferir la boleta al comprador <strong>${info.buyer.name}</strong>.
+          Si no la tranfieres a tiempo, la venta se cancela y el dinero se devuelve.
+        </p>
+        ${eventBox(info.event)}
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#1B1B26;border-radius:10px;margin-bottom:4px">
+          <tr><td style="padding:16px 22px;border-right:1px solid rgba(255,255,255,0.05)">
+            <p style="margin:0 0 3px;font-size:10px;color:rgba(237,233,223,0.35);text-transform:uppercase;letter-spacing:0.08em">Recibirás</p>
+            <p style="margin:0;font-size:18px;font-weight:700;color:#4ADE80">${fmt(info.price)}</p>
+          </td><td style="padding:16px 22px">
+            <p style="margin:0 0 3px;font-size:10px;color:rgba(237,233,223,0.35);text-transform:uppercase;letter-spacing:0.08em">Límite</p>
+            <p style="margin:0;font-size:14px;font-weight:700;color:#F87171">${deadline}</p>
+          </td></tr>
+        </table>
+        <p style="margin:16px 0;font-size:13px;color:rgba(237,233,223,0.45);line-height:1.6">
+          Transfiere la boleta al email del comprador: <strong style="color:#EDE9DF">${info.buyer.email}</strong>
+          y luego marca la transferencia en la plataforma.
+        </p>
+        ${btn(`${APP_URL}/dashboard?tab=matches`, 'Marcar como transferida')}
+      `),
+    }),
+    resend.emails.send({
+      from:    FROM,
+      to:      info.buyer.email,
+      subject: `✅ Pago confirmado — el vendedor tiene 4h para enviarte la boleta`,
+      html:    base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">¡Pago recibido! ✅</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          El vendedor <strong>${info.seller.name}</strong> tiene hasta las <strong style="color:#C8A04A">${deadline}</strong> para transferirte la boleta.
+          Cuando la recibas, confirma en la plataforma para liberar el pago.
+        </p>
+        ${eventBox(info.event)}
+        ${btn(`${APP_URL}/dashboard?tab=matches`, 'Ver estado del pedido')}
+        <p style="margin:20px 0 0;font-size:12px;color:rgba(237,233,223,0.28);line-height:1.6">
+          Tu dinero está seguro con nosotros hasta que confirmes la recepción de la boleta.
+        </p>
+      `),
+    }),
+  ])
+}
+
+/* ══════════════════════════════════════════
+   6. VENDEDOR TRANSFIRIÓ → comprador: confirma
+══════════════════════════════════════════ */
+export async function sendTransferredEmail(buyer: { email: string; name: string }, event: EventInfo, matchId: string) {
+  const resend = getResend()
+  if (!resend) return
+  try {
+    await resend.emails.send({
+      from:    FROM,
+      to:      buyer.email,
+      subject: `🎟️ El vendedor dice que transfirió tu boleta — confirma la recepción`,
+      html:    base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">¿Recibiste la boleta? 🎟️</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          El vendedor marcó la boleta como transferida. Revisa tu email o la app del venue
+          y confirma la recepción para liberar el pago al vendedor.
+        </p>
+        ${eventBox(event)}
+        <div style="display:flex;gap:12px;margin-top:8px">
+          ${btn(`${APP_URL}/dashboard?tab=matches`, 'Confirmar recepción')}
+        </div>
+        <p style="margin:20px 0 0;font-size:12px;color:rgba(237,233,223,0.28);line-height:1.6">
+          Si no confirmas en <strong>24 horas</strong>, el pago se libera automáticamente.
+          Si hay algún problema, repórtalo en la plataforma.
+        </p>
+      `),
+    })
+  } catch (err) { console.error('[email] transferred:', err) }
+}
+
+/* ══════════════════════════════════════════
+   7. TRANSACCIÓN COMPLETADA
+══════════════════════════════════════════ */
+export async function sendCompletedEmail(
+  seller: { email: string; name: string },
+  buyer:  { email: string; name: string },
+  event:  EventInfo,
+  price:  number,
+) {
+  const resend = getResend()
+  if (!resend) return
+  const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+  await Promise.allSettled([
+    resend.emails.send({
+      from:    FROM, to: seller.email,
+      subject: `✅ Transacción completada — ${fmt(price)} en camino`,
+      html:    base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">¡Venta completada! ✅</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          El comprador confirmó la recepción. Recibirás <strong style="color:#4ADE80">${fmt(price)}</strong> en tu cuenta registrada en 1–3 días hábiles.
+        </p>
+        ${eventBox(event)}
+        ${btn(`${APP_URL}/dashboard`, 'Ver mis transacciones')}
+      `),
+    }),
+    resend.emails.send({
+      from:    FROM, to: buyer.email,
+      subject: `🎉 ¡Disfruta el evento! Tu boleta para ${event.name} está lista`,
+      html:    base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">¡Todo listo! 🎉</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          Confirmaste la recepción de tu boleta. El pago fue liberado al vendedor. ¡Que lo disfrutes!
+        </p>
+        ${eventBox(event)}
+        ${btn(`${APP_URL}/dashboard`, 'Ver mis compras')}
+      `),
+    }),
+  ])
+}
+
+/* ══════════════════════════════════════════
+   8. DISPUTA ABIERTA
+══════════════════════════════════════════ */
+export async function sendDisputeEmail(
+  seller: { email: string; name: string },
+  buyer:  { email: string; name: string },
+  event:  EventInfo,
+  matchId: string,
+) {
+  const resend = getResend()
+  if (!resend) return
+  await Promise.allSettled([
+    resend.emails.send({
+      from: FROM, to: seller.email,
+      subject: `⚠️ El comprador reportó un problema con la boleta de ${event.name}`,
+      html: base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">Disputa abierta ⚠️</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          El comprador <strong>${buyer.name}</strong> reportó un problema con la boleta. El pago queda retenido
+          mientras investigamos. Nos pondremos en contacto contigo a la brevedad.
+        </p>
+        ${eventBox(event)}
+        <p style="font-size:12px;color:rgba(237,233,223,0.35)">Ref: ${matchId.slice(0, 8)}</p>
+      `),
+    }),
+    resend.emails.send({
+      from: FROM, to: buyer.email,
+      subject: `⚠️ Disputa abierta — estamos investigando tu caso`,
+      html: base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">Recibimos tu reporte ⚠️</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          Abrimos una investigación. Tu dinero está retenido y seguro. Nos contactaremos contigo en las próximas 24 horas.
+        </p>
+        ${eventBox(event)}
+        <p style="font-size:12px;color:rgba(237,233,223,0.35)">Ref: ${matchId.slice(0, 8)}</p>
+      `),
+    }),
+  ])
+}
+
+/* ══════════════════════════════════════════
+   9. WhatsApp via Twilio
 ══════════════════════════════════════════ */
 export async function sendMatchWhatsApp(
   role: 'buyer' | 'seller',
