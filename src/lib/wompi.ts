@@ -47,11 +47,27 @@ export async function createPaymentLink(opts: {
   return { url: data.permalink as string, id: data.id as string }
 }
 
+// Wompi signs events as SHA256(raw_body + events_secret)
 export function verifyWompiSignature(payload: string, signature: string): boolean {
-  if (!process.env.WOMPI_EVENTS_SECRET) return true // skip in dev
-  const { createHmac } = require('crypto') as typeof import('crypto')
-  const expected = createHmac('sha256', process.env.WOMPI_EVENTS_SECRET)
-    .update(payload)
+  if (!process.env.WOMPI_EVENTS_SECRET) return true
+  const { createHash } = require('crypto') as typeof import('crypto')
+  const expected = createHash('sha256')
+    .update(payload + process.env.WOMPI_EVENTS_SECRET)
     .digest('hex')
   return expected === signature
+}
+
+// Verify redirect callback integrity: SHA256(reference+amount_in_cents+currency+integrity_secret)
+export function verifyWompiIntegrity(
+  reference: string,
+  amountInCents: string,
+  currency: string,
+  checksum: string,
+): boolean {
+  if (!process.env.WOMPI_INTEGRITY_SECRET) return true
+  const { createHash } = require('crypto') as typeof import('crypto')
+  const expected = createHash('sha256')
+    .update(reference + amountInCents + currency + process.env.WOMPI_INTEGRITY_SECRET)
+    .digest('hex')
+  return expected === checksum
 }
