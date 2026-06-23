@@ -3,12 +3,25 @@ import { adminClient } from '@/lib/supabase/admin'
 import { verifyWompiSignature } from '@/lib/wompi'
 import { sendPaymentConfirmedEmail } from '@/lib/notifications'
 
+const FORWARD_WEBHOOKS = [
+  'https://api-chi-orpin-54.vercel.app/api/wompi/webhook',
+]
+
 export async function POST(req: Request) {
   const body = await req.text()
   const signature = req.headers.get('x-event-checksum') ?? ''
 
   if (!verifyWompiSignature(body, signature)) {
     return NextResponse.json({ error: 'Firma inválida' }, { status: 401 })
+  }
+
+  // Forward to other platforms (fire and forget)
+  for (const url of FORWARD_WEBHOOKS) {
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-event-checksum': signature },
+      body,
+    }).catch(() => {})
   }
 
   const event = JSON.parse(body)
