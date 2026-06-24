@@ -419,3 +419,88 @@ export async function sendMatchWhatsApp(
     })
   } catch (err) { console.error('[whatsapp]:', err) }
 }
+
+/* ══════════════════════════════════════════
+   10. VENDEDOR NO TRANSFIRIÓ A TIEMPO → comprador: reembolso / vendedor: aviso
+══════════════════════════════════════════ */
+export async function sendSellerExpiredEmail(
+  seller: { email: string; name: string },
+  buyer:  { email: string; name: string },
+  event:  EventInfo,
+  matchId: string,
+) {
+  const resend = getResend()
+  if (!resend) return
+  await Promise.allSettled([
+    resend.emails.send({
+      from: FROM, to: buyer.email,
+      subject: `❌ El vendedor no transfirió la boleta de ${event.name} — te reembolsamos`,
+      html: base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">El vendedor no respondió ❌</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          El vendedor no transfirió la boleta dentro del plazo de 4 horas. Tu pago será reembolsado en los próximos 1–3 días hábiles.
+          Lamentamos el inconveniente.
+        </p>
+        ${eventBox(event)}
+        <p style="font-size:12px;color:rgba(237,233,223,0.35)">Ref: ${matchId.slice(0, 8)}</p>
+        ${btn(`${APP_URL}/dashboard`, 'Ver mis compras')}
+      `),
+    }),
+    resend.emails.send({
+      from: FROM, to: seller.email,
+      subject: `❌ Se venció el plazo para transferir la boleta de ${event.name}`,
+      html: base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">Plazo vencido ❌</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          No transferiste la boleta de <strong>${event.name}</strong> dentro de las 4 horas requeridas.
+          La venta fue cancelada y el comprador recibirá su reembolso. Si crees que esto fue un error,
+          contáctanos de inmediato.
+        </p>
+        ${eventBox(event)}
+        <p style="font-size:12px;color:rgba(237,233,223,0.35)">Ref: ${matchId.slice(0, 8)}</p>
+      `),
+    }),
+  ])
+}
+
+/* ══════════════════════════════════════════
+   11. AUTO-CONFIRMACIÓN tras 24h sin respuesta del comprador
+══════════════════════════════════════════ */
+export async function sendAutoConfirmedEmail(
+  seller: { email: string; name: string },
+  buyer:  { email: string; name: string },
+  event:  EventInfo,
+  price:  number,
+) {
+  const resend = getResend()
+  if (!resend) return
+  const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+  await Promise.allSettled([
+    resend.emails.send({
+      from: FROM, to: seller.email,
+      subject: `✅ Venta confirmada automáticamente — ${event.name}`,
+      html: base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">Venta confirmada ✅</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          El comprador no respondió en 24 horas, así que la transacción fue confirmada automáticamente.
+          Tu pago de <strong style="color:#C8A04A">${fmt(price)}</strong> será transferido pronto.
+        </p>
+        ${eventBox(event)}
+        ${btn(`${APP_URL}/dashboard`, 'Ver mis ventas')}
+      `),
+    }),
+    resend.emails.send({
+      from: FROM, to: buyer.email,
+      subject: `✅ Tu compra de ${event.name} fue confirmada`,
+      html: base(`
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:#EDE9DF">Compra confirmada ✅</h1>
+        <p style="margin:0 0 20px;color:rgba(237,233,223,0.50);font-size:14px;line-height:1.6">
+          Como no confirmaste ni reportaste ningún problema en 24 horas, la transacción fue confirmada
+          automáticamente. ¡Disfruta el evento!
+        </p>
+        ${eventBox(event)}
+        ${btn(`${APP_URL}/dashboard`, 'Ver mis compras')}
+      `),
+    }),
+  ])
+}
